@@ -148,9 +148,12 @@ def plot_pdos(file_entries, out_dir, tag, energy_shift, plot_settings=None):
 
         if want_latex:
             tex_path = os.path.join(out_dir, f"pDOS-{species}_{tag}.tex")
+            # Vertical gray dashed VBM/Fermi reference line at E=0, matching the PNG path's
+            # plt.axvline(0, ...) and Figure-pDos-PBESOL-PlusU.tex's own convention.
+            vbm_line = Curve(x=[0, 0], y=[ylim[0], ylim[1]], color='gray', dashed=True)
             dat_paths = export_pgfplots(
                 tex_path,
-                [Curve(x=e, y=ldos, label=label, color=color) for label, e, ldos, color in curves],
+                [vbm_line] + [Curve(x=e, y=ldos, label=label, color=color) for label, e, ldos, color in curves],
                 xlabel='Energy (eV)', ylabel='pDOS (states/eV)',
                 xlim=xlim, ylim=ylim,
                 template_path=plot_settings.get('template_path'),
