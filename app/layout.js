@@ -1,5 +1,6 @@
 import AppShell from '@/components/AppShell'
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata = {
   title: 'QE Post-processing Lab',
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   )
