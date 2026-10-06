@@ -2,7 +2,7 @@ import AppShell from '@/components/AppShell'
 import './globals.css'
 
 export const metadata = {
-  title: 'DFT Post-Processing Lab',
+  title: 'QE Post-processing Lab',
   description: 'Self-service post-processing and input-generation tools for DFT calculations.',
 }
 

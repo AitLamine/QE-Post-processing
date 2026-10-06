@@ -8,7 +8,7 @@ export default function HomePage() {
   return (
     <div>
       <div className="intro">
-        <h1>DFT Post-Processing Lab</h1>
+        <h1>QE Post-processing Lab</h1>
         <p>{t('intro1')}</p>
         <p>{t('intro2')}</p>
       </div>

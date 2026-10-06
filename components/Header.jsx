@@ -9,7 +9,7 @@ export default function Header({ theme, onToggleTheme }) {
     <header className="header">
       <Link href="/" className="header-title">
         <span className="header-dot" />
-        <h1>DFT Post-Processing Lab</h1>
+        <h1>QE Post-processing Lab</h1>
         <span className="header-dot" style={{ background: 'var(--accent2)' }} />
       </Link>
       <div style={{ flex: 1 }} />

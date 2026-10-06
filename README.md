@@ -1,4 +1,4 @@
-# DFT Post-Processing Lab
+# QE Post-processing Lab
 
 GUI scaffold for the self-service DFT post-processing tool described in
 `Post-Processing-WebApp-Outline.md` (in the sibling `CrystalEdu-App` folder). This is the
