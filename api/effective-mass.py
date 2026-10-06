@@ -65,7 +65,59 @@ SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "effective-mass")
 )
 
+sys.path.insert(0, SCRIPTS_DIR)
+from effective_mass_latex_export import export_effective_mass_tex  # noqa: E402
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "common"))
+from pgfplots_export import compile_pgfplots_to_pdf  # noqa: E402
+
 DEFAULT_DIRECTION_LABELS = ["First-Direction", "Second-Direction", "Third-Direction"]
+
+BAND_ROLE_RE = re.compile(r"^(VB|CB)(\d+)-")
+
+
+def _band_role_sort_key(folder_name):
+    m = BAND_ROLE_RE.match(folder_name)
+    if not m:
+        return (2, 0)
+    carrier, num = m.group(1), int(m.group(2))
+    # CB highest-index first, then VB1..VB-highest, matching Figure-Effective-Mass.tex's
+    # CB-panel-then-VB-panel-below convention for each band.
+    return (0, -num) if carrier == "CB" else (1, num)
+
+
+def _build_combined_effective_mass_tex(scratch_dir, direction_results, template_path):
+    """One real-paper-style figure: a panel per band (CB highest-index down to CB1, then VB1
+    down to VB-highest-index), each panel concatenating every direction's data along a shared
+    k-axis with a mass-value label per direction segment. Returns (tex_path, dat_paths, pdf_path)
+    or (None, [], None) if there's nothing to draw (e.g. every direction failed upstream).
+    """
+    folders_seen = {}
+    for dr in direction_results:
+        for br in dr["band_results"]:
+            folders_seen.setdefault(br["folder"], br)
+
+    ordered_folders = sorted(folders_seen.keys(), key=_band_role_sort_key)
+    band_entries = []
+    for folder in ordered_folders:
+        carrier_color = "magenta" if folder.startswith("CB") else "blue"
+        direction_entries = []
+        for dr in direction_results:
+            match = next((br for br in dr["band_results"] if br["folder"] == folder), None)
+            if not match:
+                continue
+            plot_data_path = os.path.join(match["folder_path"], f"{folder}_plot_data.txt")
+            direction_entries.append((dr["label"], plot_data_path, match["m_eff"]))
+        if direction_entries:
+            band_entries.append((folder, carrier_color, direction_entries))
+
+    if not band_entries:
+        return None, [], None
+
+    tex_path = os.path.join(scratch_dir, "Combined-Effective-Mass.tex")
+    dat_paths = export_effective_mass_tex(tex_path, band_entries, template_path=template_path)
+    pdf_path = compile_pgfplots_to_pdf(tex_path)
+    return tex_path, dat_paths, pdf_path
 
 AUTO_FILE_SLOTS = {
     "datgnu": "dat",  # goes into raw/dat/
@@ -504,6 +556,20 @@ def _build_zip(module_title, mode, parameters, direction_results, template_path)
             if os.path.isdir(dat_dir):
                 for fname in sorted(os.listdir(dat_dir)):
                     zf.write(os.path.join(dat_dir, fname), f"figures/{slug}/dat/{fname}")
+
+        figure_format_raw = (parameters.get("figureFormat") or "png").lower()
+        want_latex = "latex" in figure_format_raw or "both" in figure_format_raw
+        if want_latex and direction_results:
+            scratch_dir = os.path.dirname(direction_results[0]["direction_cwd"])
+            tex_path, dat_paths, pdf_path = _build_combined_effective_mass_tex(
+                scratch_dir, direction_results, template_path
+            )
+            if tex_path:
+                zf.write(tex_path, f"figures/{os.path.basename(tex_path)}")
+                for p in dat_paths:
+                    zf.write(p, f"figures/dat/{os.path.basename(p)}")
+                if pdf_path:
+                    zf.write(pdf_path, f"figures/{os.path.basename(pdf_path)}")
 
     return buf.getvalue()
 
