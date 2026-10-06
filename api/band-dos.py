@@ -2,7 +2,8 @@
 
 Endpoint: POST /api/band-dos
 Fields expected: moduleId, parameters (JSON: energyShift, kPathTicks, occupiedSplit,
-figureFormat, xRange, yRange), files: bandsGnu (bands.x .dat.gnu), dos (dos.x output).
+figureFormat, xRange, yRange), files: bandsGnu (bands.x .dat.gnu), dos (dos.x output),
+templateFile (optional custom .tex template for the pgfplots export).
 Response: application/zip (figures/ + tables/), or JSON error.
 """
 
@@ -81,6 +82,14 @@ class handler(BaseTaskHandler):
             "y_range": parameters.get("yRange") or "",
             "template_path": None,
         }
+        template_uploads = files.get("templateFile") or []
+        if template_uploads:
+            template_name, template_bytes = template_uploads[0]
+            if template_name.lower().endswith(".tex"):
+                template_path = os.path.join(scratch_dir, "template.tex")
+                with open(template_path, "wb") as fh:
+                    fh.write(template_bytes)
+                plot_settings["template_path"] = template_path
 
         try:
             out_paths = plot_bands_dos(

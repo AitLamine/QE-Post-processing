@@ -45,8 +45,13 @@ export default function TaskPage({ module }) {
   const [manualTexts, setManualTexts] = useState({})
   const [manualPdosEntries, setManualPdosEntries] = useState([{ species: '', orbital: '', shell: '', text: '' }])
   const [manualDosForFermiText, setManualDosForFermiText] = useState('')
+  const [templateFile, setTemplateFile] = useState([])
 
   const isPdosModule = module.id === 'pdos-plotter'
+  // Custom-template upload is only meaningful for modules whose backend actually produces a
+  // pgfplots figure (i.e. they expose a figureFormat choice); bader-charge/hubbard-u are
+  // tables-only and effective-mass has its own separate form with its own upload already.
+  const supportsLatexTemplate = module.parameters.some((p) => p.id === 'figureFormat')
   const hasManualMode = isPdosModule || (module.manualEntryFiles?.length > 0)
 
   const manualFiles = (module.manualEntryFiles || [])
@@ -86,6 +91,7 @@ export default function TaskPage({ module }) {
       activeFiles.forEach((file) => formData.append('files', file))
       compareFiles.forEach((file) => formData.append('compareFiles', file))
       activeDosForFermi.forEach((file) => formData.append('dosForFermi', file))
+      if (templateFile[0]) formData.append('templateFile', templateFile[0])
 
       const res = await fetch(module.apiEndpoint || '/api/process', { method: 'POST', body: formData })
       if (!res.ok) throw new Error(`Server returned ${res.status}`)
@@ -211,6 +217,15 @@ export default function TaskPage({ module }) {
           getLabel={(param) => paramLabel(module, param, lang)}
           getOptionLabel={(param, opt) => paramOptionLabel(module, param, opt, lang)}
         />
+        {supportsLatexTemplate && (
+          <div style={{ marginTop: 16 }}>
+            <UploadWidget
+              label="Custom LaTeX template (optional, .tex) — your own pgfplots template; the generated axis is spliced in wherever it contains %%PGFPLOTS_AXIS%%, otherwise it's appended"
+              files={templateFile}
+              onChange={(f) => setTemplateFile(f.slice(-1))}
+            />
+          </div>
+        )}
       </div>
 
       <div className="section-block">

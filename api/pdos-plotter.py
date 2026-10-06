@@ -3,7 +3,8 @@
 Endpoint: POST /api/pdos-plotter
 Fields expected: moduleId, parameters (JSON: energyShift, pdosFileLabels [{filename, species,
 orbital, shell}], figureFormat, xRange, yRange), files: files (raw projwfc.x pdos_atm uploads,
-one per orbital/atom), dosForFermi (optional, dos.x output, only used to auto-detect EFermi).
+one per orbital/atom), dosForFermi (optional, dos.x output, only used to auto-detect EFermi),
+templateFile (optional custom .tex template for the pgfplots export).
 Response: application/zip (figures/ + tables/), or JSON error.
 """
 
@@ -95,6 +96,14 @@ class handler(BaseTaskHandler):
             "y_range": parameters.get("yRange") or "",
             "template_path": None,
         }
+        template_uploads = files.get("templateFile") or []
+        if template_uploads:
+            template_name, template_bytes = template_uploads[0]
+            if template_name.lower().endswith(".tex"):
+                template_path = os.path.join(scratch_dir, "template.tex")
+                with open(template_path, "wb") as fh:
+                    fh.write(template_bytes)
+                plot_settings["template_path"] = template_path
 
         try:
             out_paths = plot_pdos(file_entries, scratch_dir, tag="pDOS", energy_shift=energy_shift,
