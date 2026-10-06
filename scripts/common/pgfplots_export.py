@@ -103,7 +103,7 @@ def _write_dat_file(dat_dir: str, name: str, x: Sequence[float], y: Sequence[flo
 
 def _default_axis_block(curves: Sequence[Curve], curve_dat_names: Sequence[str], xlabel: str,
                          ylabel: str, xlim, ylim, legend: bool, legend_position: str,
-                         line_width: float) -> str:
+                         line_width: float, xtick_labels: Optional[Sequence] = None) -> str:
     x_precision = _tick_precision([xlim[0], xlim[1]])
     y_precision = _tick_precision([ylim[0], ylim[1]])
     lines = [
@@ -121,6 +121,11 @@ def _default_axis_block(curves: Sequence[Curve], curve_dat_names: Sequence[str],
         "    xlabel near ticks, ylabel near ticks,",
         "    minor x tick num=4, minor y tick num=4,",
     ]
+    if xtick_labels:
+        # High-symmetry k-path ticks (e.g. Gamma/M/K), matching Figure-Bands-Dos-PBESOL.tex's
+        # own xtick/xticklabels convention instead of leaving plain numeric k-distance ticks.
+        lines.append(f"    xtick={{{','.join(f'{p:.6g}' for p, _ in xtick_labels)}}},")
+        lines.append(f"    xticklabels={{{', '.join(l for _, l in xtick_labels)}}},")
     if legend and any(c.label for c in curves):
         lines.append(
             "    legend cell align={left}, "
@@ -142,7 +147,8 @@ def _default_axis_block(curves: Sequence[Curve], curve_dat_names: Sequence[str],
 def export_pgfplots(output_path: str, curves: Sequence[Curve], xlabel: str, ylabel: str,
                      xlim=None, ylim=None, legend: bool = True, legend_position: str = "best",
                      line_width: float = DEFAULT_LINE_WIDTH,
-                     template_path: Optional[str] = None):
+                     template_path: Optional[str] = None,
+                     xtick_labels: Optional[Sequence] = None):
     """Write a standalone .tex file plotting `curves` with pgfplots, styled to match the user's
     own paper figures: fixed-precision tick labels, `line cap=round`, `xlabel/ylabel near
     ticks`, and each curve's data in its own file under a `dat/` subfolder next to the .tex
@@ -172,7 +178,7 @@ def export_pgfplots(output_path: str, curves: Sequence[Curve], xlabel: str, ylab
         curve_dat_names.append(dat_name)
 
     axis_block = _default_axis_block(curves, curve_dat_names, xlabel, ylabel, xlim, ylim,
-                                      legend, legend_position, line_width)
+                                      legend, legend_position, line_width, xtick_labels)
 
     if template_path:
         with open(template_path, "r") as f:

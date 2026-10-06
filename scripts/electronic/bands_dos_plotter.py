@@ -119,14 +119,19 @@ def plot_bands_dos(bands_gnu_path, dos_path, out_dir, tag, energy_shift=None,
 
     if want_latex:
         tex_path = os.path.join(out_dir, f"Bands_{tag}.tex")
+        # Matches Figure-Bands-Dos-PBESOL.tex: a magenta E=0 (VBM) reference line and gray
+        # vertical lines at each high-symmetry k-point, same as the PNG path above already does.
         curves = (
             [Curve(x=[k for k, _ in b], y=[e for _, e in b], color='teal') for b in drawn_occupied]
             + [Curve(x=[k for k, _ in b], y=[e for _, e in b], color='purple') for b in drawn_unoccupied]
+            + [Curve(x=[k_xlim[0], k_xlim[1]], y=[0, 0], color='magenta')]
+            + [Curve(x=[pos, pos], y=[energy_ylim[0], energy_ylim[1]], color='gray') for pos, _ in ticks]
         )
         dat_paths = export_pgfplots(
             tex_path, curves, xlabel='K-points path', ylabel='Energy (eV)',
             xlim=k_xlim, ylim=energy_ylim, legend=False,
             template_path=plot_settings.get('template_path'),
+            xtick_labels=ticks or None,
         )
         out_paths.append(tex_path)
         out_paths.extend(dat_paths)
@@ -159,8 +164,12 @@ def plot_bands_dos(bands_gnu_path, dos_path, out_dir, tag, energy_shift=None,
 
     if want_latex:
         tex_path = os.path.join(out_dir, f"DOS_{tag}.tex")
+        curves = [
+            Curve(x=dos_values, y=dos_energies_shifted, color='blue'),
+            Curve(x=[dos_xlim[0], dos_xlim[1]], y=[0, 0], color='magenta'),
+        ]
         dat_paths = export_pgfplots(
-            tex_path, [Curve(x=dos_values, y=dos_energies_shifted, color='blue')],
+            tex_path, curves,
             xlabel='DOS (states/eV)', ylabel='Energy (eV)',
             xlim=dos_xlim, ylim=energy_ylim, legend=False,
             template_path=plot_settings.get('template_path'),
