@@ -57,12 +57,14 @@ _MPL_LEGEND_KWARGS = {
 
 def load_plot_settings():
     settings = dict(DEFAULT_PLOT_SETTINGS)
+    settings["direction_label"] = None
     if os.path.exists("material_config.json"):
         try:
             with open("material_config.json") as f:
                 config = json.load(f)
             plot = config.get("settings", {}).get("plot", {})
             settings.update(plot)
+            settings["direction_label"] = config.get("direction_label")
         except Exception as e:
             print(f"Warning: could not read plot settings from material_config.json: {e}")
     return settings
@@ -178,6 +180,11 @@ def create_enhanced_plot(k, E, results, input_filename, plot_settings, save_plot
     legend_position = plot_settings.get("legend_position", "best")
     label_data = plot_settings.get("legend_label_data") or "DFT data points"
     label_fit = plot_settings.get("legend_label_fit") or "Fitted parabola"
+    direction_label = plot_settings.get("direction_label")
+    plot_title = (
+        f"Band Structure Fit - {direction_label} ({os.path.basename(input_filename)})"
+        if direction_label else f"Band Structure Fit - {os.path.basename(input_filename)}"
+    )
 
     # Create fitted curve for plotting
     k_fit = np.linspace(k.min(), k.max(), 100)
@@ -228,7 +235,7 @@ def create_enhanced_plot(k, E, results, input_filename, plot_settings, save_plot
             # Formatting
             plt.xlabel('k (Å⁻¹)', fontsize=12)
             plt.ylabel('E (eV)', fontsize=12)
-            plt.title(f'Band Structure Fit - {os.path.basename(input_filename)}', fontsize=14)
+            plt.title(plot_title, fontsize=14)
             plt.xlim(xlim)
             plt.ylim(ylim)
             if legend_show:
@@ -272,6 +279,7 @@ def create_enhanced_plot(k, E, results, input_filename, plot_settings, save_plot
             legend=legend_show,
             legend_position=legend_position,
             template_path=template_path,
+            title=plot_title,
         )
         print(f"✓ LaTeX (pgfplots) figure saved to: {tex_filename}")
         saved_files.append(tex_filename)

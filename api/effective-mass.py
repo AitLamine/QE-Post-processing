@@ -27,24 +27,27 @@ dependencies. See `_parse_multipart` below.
 Request fields expected (see this module's final report for the full
 parameter/field-name contract handed to the frontend):
   - moduleId, moduleTitle
-  - parameters: JSON string (detectionMode, numDirections, shared pipeline
-    settings, plot settings, and per-direction manual-mode values)
-  - per-direction files, named `direction{i}_<slot>` (Auto mode: `datgnu`,
+  - parameters: JSON string (detectionMode, shared pipeline settings, plot
+    settings, and manual-mode lattice/VBM values)
+  - files, named by slot with no numeric prefix (Auto mode: `datgnu`,
     `scfBandsIn`, `scfBandsOut`, `bandsCalcIn`, `bandsCalcOut`; Manual mode:
     `bandFile`)
   - templateFile: optional custom LaTeX template (.tex) for the pgfplots
-    export, shared across all directions in the request
+    export
+
+One k-direction per request, by design: an earlier version of this module
+accepted 1-3 directions in a single request, chaining up to 3x the
+subprocess pipeline below into one HTTP call. That's exactly the kind of
+request a serverless function timeout can kill partway through, and it's
+also just not how every other module in this app works (upload once,
+process once, download once). A student wanting more than one direction
+runs this module once per direction instead.
 
 Response: a binary `application/zip` body (same header pattern as
 app/api/process/route.js) containing README.txt / figures/ / tables/ /
 raw-parsed-data/, or a small JSON `{"error": "..."}` body with a 4xx/5xx
 status on failure (plain-language messages, no raw tracebacks, per the
 module outline's "Error messages" requirement).
-
-Per the task constraints, this file was never executed end-to-end (no
-numpy/scipy/pandas run happened while writing it) - only
-`python3 -m py_compile` was used to check it. Validate the real request/
-response cycle with `vercel dev` separately.
 """
 
 import glob
@@ -64,60 +67,6 @@ from http.server import BaseHTTPRequestHandler
 SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "effective-mass")
 )
-
-sys.path.insert(0, SCRIPTS_DIR)
-from effective_mass_latex_export import export_effective_mass_tex  # noqa: E402
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "common"))
-from pgfplots_export import compile_pgfplots_to_pdf  # noqa: E402
-
-DEFAULT_DIRECTION_LABELS = ["First-Direction", "Second-Direction", "Third-Direction"]
-
-BAND_ROLE_RE = re.compile(r"^(VB|CB)(\d+)-")
-
-
-def _band_role_sort_key(folder_name):
-    m = BAND_ROLE_RE.match(folder_name)
-    if not m:
-        return (2, 0)
-    carrier, num = m.group(1), int(m.group(2))
-    # CB highest-index first, then VB1..VB-highest, matching Figure-Effective-Mass.tex's
-    # CB-panel-then-VB-panel-below convention for each band.
-    return (0, -num) if carrier == "CB" else (1, num)
-
-
-def _build_combined_effective_mass_tex(scratch_dir, direction_results, template_path):
-    """One real-paper-style figure: a panel per band (CB highest-index down to CB1, then VB1
-    down to VB-highest-index), each panel concatenating every direction's data along a shared
-    k-axis with a mass-value label per direction segment. Returns (tex_path, dat_paths, pdf_path)
-    or (None, [], None) if there's nothing to draw (e.g. every direction failed upstream).
-    """
-    folders_seen = {}
-    for dr in direction_results:
-        for br in dr["band_results"]:
-            folders_seen.setdefault(br["folder"], br)
-
-    ordered_folders = sorted(folders_seen.keys(), key=_band_role_sort_key)
-    band_entries = []
-    for folder in ordered_folders:
-        carrier_color = "magenta" if folder.startswith("CB") else "blue"
-        direction_entries = []
-        for dr in direction_results:
-            match = next((br for br in dr["band_results"] if br["folder"] == folder), None)
-            if not match:
-                continue
-            plot_data_path = os.path.join(match["folder_path"], f"{folder}_plot_data.txt")
-            direction_entries.append((dr["label"], plot_data_path, match["m_eff"]))
-        if direction_entries:
-            band_entries.append((folder, carrier_color, direction_entries))
-
-    if not band_entries:
-        return None, [], None
-
-    tex_path = os.path.join(scratch_dir, "Combined-Effective-Mass.tex")
-    dat_paths = export_effective_mass_tex(tex_path, band_entries, template_path=template_path)
-    pdf_path = compile_pgfplots_to_pdf(tex_path)
-    return tex_path, dat_paths, pdf_path
 
 AUTO_FILE_SLOTS = {
     "datgnu": "dat",  # goes into raw/dat/
@@ -218,13 +167,8 @@ def _bool(value, default=True):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
-def _direction_label(parameters, i):
-    explicit = parameters.get(f"direction{i}Label")
-    if explicit:
-        return explicit
-    if i <= len(DEFAULT_DIRECTION_LABELS):
-        return DEFAULT_DIRECTION_LABELS[i - 1]
-    return f"Direction-{i}"
+def _direction_label(parameters):
+    return parameters.get("directionLabel") or "Direction"
 
 
 def _extract_effective_mass(info_text):
@@ -242,9 +186,9 @@ def _extract_r_squared(info_text):
 # branching only at the Detect-Configuration.py / Manual-Configuration.py step)
 # ---------------------------------------------------------------------------
 
-def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
-    label = _direction_label(parameters, i)
-    direction_cwd = os.path.join(scratch_dir, f"direction-{i}")
+def _run_direction(mode, parameters, files, scratch_dir, template_path):
+    label = _direction_label(parameters)
+    direction_cwd = os.path.join(scratch_dir, "direction")
     raw_dir = os.path.join(direction_cwd, "raw")
     os.makedirs(raw_dir, exist_ok=True)
 
@@ -252,6 +196,14 @@ def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
     n_above = _int(parameters.get("nBandsAboveCbm"), 3)
     points_around_extremum = _int(parameters.get("pointsAroundExtremum"), 10)
     material_label = parameters.get("materialLabel") or ""
+
+    # Normalize the raw dropdown value ("PNG" / "LaTeX (pgfplots)" / "Both") down to the
+    # plain "png"/"latex"/"both" token create_enhanced_plot checks for exact equality against
+    # -- a bare .lower() left "latex (pgfplots)" matching neither "latex" nor "both", which
+    # silently produced no figure at all when "LaTeX (pgfplots)" was selected. Every other
+    # module's api/*.py already does this substring-based normalization; this one didn't.
+    figure_format_raw = (parameters.get("figureFormat") or "png").lower()
+    figure_format = "both" if "both" in figure_format_raw else ("latex" if "latex" in figure_format_raw else "png")
 
     pipeline_settings = {
         "material_label": material_label,
@@ -265,7 +217,7 @@ def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
             "legend_label_data": parameters.get("legendLabelData") or "DFT data points",
             "legend_label_fit": parameters.get("legendLabelFit") or "Fitted parabola",
             "legend_position": parameters.get("legendPosition") or "best",
-            "figure_format": (parameters.get("figureFormat") or "png").lower(),
+            "figure_format": figure_format,
             "template_path": template_path,
         },
     }
@@ -279,18 +231,17 @@ def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
         os.makedirs(dat_dir, exist_ok=True)
         missing = []
         for slot, subdir in AUTO_FILE_SLOTS.items():
-            field = f"direction{i}_{slot}"
-            if field not in files:
-                missing.append(field)
+            if slot not in files:
+                missing.append(slot)
                 continue
-            fname, fbytes = files[field]
+            fname, fbytes = files[slot]
             uploaded_names.append(fname)
             dest_dir = dat_dir if subdir == "dat" else raw_dir
             with open(os.path.join(dest_dir, fname), "wb") as fh:
                 fh.write(fbytes)
         if missing:
             raise PipelineError(
-                f"{label}: Auto mode needs all 4 raw QE files per direction, but "
+                f"{label}: Auto mode needs all 4 raw QE files, but "
                 f"{len(missing)} field(s) were missing from the upload ({', '.join(missing)}). "
                 "Auto mode expects the .dat.gnu band file plus the scf-bands and "
                 "Bands-Calculation .in/.out pairs, exactly as pw.x/bands.x produced them."
@@ -303,26 +254,23 @@ def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
         except subprocess.CalledProcessError as e:
             raise PipelineError(_friendly_subprocess_error(e, label))
     else:
-        band_field = f"direction{i}_bandFile"
-        if band_field not in files:
+        if "bandFile" not in files:
             raise PipelineError(
                 f"{label}: Manual mode needs one band-structure data file "
-                f"('{band_field}') plus the typed lattice constant and VBM band index."
+                "('bandFile') plus the typed lattice constant and VBM band index."
             )
-        fname, fbytes = files[band_field]
+        fname, fbytes = files["bandFile"]
         uploaded_names.append(fname)
         band_path = os.path.join(raw_dir, fname)
         with open(band_path, "wb") as fh:
             fh.write(fbytes)
 
-        lattice_key = f"direction{i}LatticeConstant"
-        vbm_key = f"direction{i}VbmIndex"
-        lattice_constant = _float(parameters.get(lattice_key))
-        vbm_index = _int(parameters.get(vbm_key), None)
+        lattice_constant = _float(parameters.get("latticeConstant"))
+        vbm_index = _int(parameters.get("vbmIndex"), None)
         if lattice_constant is None or vbm_index is None:
             raise PipelineError(
                 f"{label}: Manual mode needs both a lattice constant (Angstrom) and a "
-                f"VBM band index typed in ('{lattice_key}' and '{vbm_key}')."
+                "VBM band index typed in ('latticeConstant' and 'vbmIndex')."
             )
         try:
             _run(
@@ -406,7 +354,6 @@ def _run_direction(i, mode, parameters, files, scratch_dir, template_path):
         )
 
     return {
-        "index": i,
         "label": label,
         "mode": mode,
         "direction_cwd": direction_cwd,
@@ -453,8 +400,6 @@ def _build_readme(module_title, mode, parameters, direction_results, template_pa
 
     lines.append("Parameters used:")
     for key, value in parameters.items():
-        if re.match(r"^direction\d+_", key):
-            continue  # file placeholders, already listed above per direction
         lines.append(f"  - {key}: {value}")
     lines.append("")
 
@@ -557,20 +502,6 @@ def _build_zip(module_title, mode, parameters, direction_results, template_path)
                 for fname in sorted(os.listdir(dat_dir)):
                     zf.write(os.path.join(dat_dir, fname), f"figures/{slug}/dat/{fname}")
 
-        figure_format_raw = (parameters.get("figureFormat") or "png").lower()
-        want_latex = "latex" in figure_format_raw or "both" in figure_format_raw
-        if want_latex and direction_results:
-            scratch_dir = os.path.dirname(direction_results[0]["direction_cwd"])
-            tex_path, dat_paths, pdf_path = _build_combined_effective_mass_tex(
-                scratch_dir, direction_results, template_path
-            )
-            if tex_path:
-                zf.write(tex_path, f"figures/{os.path.basename(tex_path)}")
-                for p in dat_paths:
-                    zf.write(p, f"figures/dat/{os.path.basename(p)}")
-                if pdf_path:
-                    zf.write(pdf_path, f"figures/{os.path.basename(pdf_path)}")
-
     return buf.getvalue()
 
 
@@ -630,8 +561,6 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": f"Unknown detectionMode '{mode}'; expected 'auto' or 'manual'."})
                 return
 
-            num_directions = max(1, _int(parameters.get("numDirections"), 1))
-
             scratch_dir = tempfile.mkdtemp(prefix="effective-mass-")
 
             template_path = None
@@ -642,9 +571,7 @@ class handler(BaseHTTPRequestHandler):
                     with open(template_path, "wb") as fh:
                         fh.write(template_bytes)
 
-            direction_results = []
-            for i in range(1, num_directions + 1):
-                direction_results.append(_run_direction(i, mode, parameters, files, scratch_dir, template_path))
+            direction_results = [_run_direction(mode, parameters, files, scratch_dir, template_path)]
 
             zip_bytes = _build_zip(module_title, mode, parameters, direction_results, template_path)
             filename = f"{re.sub(r'[^a-zA-Z0-9]+', '-', module_title).strip('-') or 'Effective-Mass'}-Results.zip"

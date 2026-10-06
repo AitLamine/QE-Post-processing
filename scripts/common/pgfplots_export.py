@@ -103,7 +103,8 @@ def _write_dat_file(dat_dir: str, name: str, x: Sequence[float], y: Sequence[flo
 
 def _default_axis_block(curves: Sequence[Curve], curve_dat_names: Sequence[str], xlabel: str,
                          ylabel: str, xlim, ylim, legend: bool, legend_position: str,
-                         line_width: float, xtick_labels: Optional[Sequence] = None) -> str:
+                         line_width: float, xtick_labels: Optional[Sequence] = None,
+                         title: Optional[str] = None) -> str:
     x_precision = _tick_precision([xlim[0], xlim[1]])
     y_precision = _tick_precision([ylim[0], ylim[1]])
     lines = [
@@ -121,6 +122,8 @@ def _default_axis_block(curves: Sequence[Curve], curve_dat_names: Sequence[str],
         "    xlabel near ticks, ylabel near ticks,",
         "    minor x tick num=4, minor y tick num=4,",
     ]
+    if title:
+        lines.append(f"    title={{{title}}},")
     if xtick_labels:
         # High-symmetry k-path ticks (e.g. Gamma/M/K), matching Figure-Bands-Dos-PBESOL.tex's
         # own xtick/xticklabels convention instead of leaving plain numeric k-distance ticks.
@@ -148,7 +151,8 @@ def export_pgfplots(output_path: str, curves: Sequence[Curve], xlabel: str, ylab
                      xlim=None, ylim=None, legend: bool = True, legend_position: str = "best",
                      line_width: float = DEFAULT_LINE_WIDTH,
                      template_path: Optional[str] = None,
-                     xtick_labels: Optional[Sequence] = None):
+                     xtick_labels: Optional[Sequence] = None,
+                     title: Optional[str] = None):
     """Write a standalone .tex file plotting `curves` with pgfplots, styled to match the user's
     own paper figures: fixed-precision tick labels, `line cap=round`, `xlabel/ylabel near
     ticks`, and each curve's data in its own file under a `dat/` subfolder next to the .tex
@@ -178,7 +182,7 @@ def export_pgfplots(output_path: str, curves: Sequence[Curve], xlabel: str, ylab
         curve_dat_names.append(dat_name)
 
     axis_block = _default_axis_block(curves, curve_dat_names, xlabel, ylabel, xlim, ylim,
-                                      legend, legend_position, line_width, xtick_labels)
+                                      legend, legend_position, line_width, xtick_labels, title)
 
     if template_path:
         with open(template_path, "r") as f:
