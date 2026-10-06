@@ -114,9 +114,14 @@ def plot_dielectric_function(epsr_path, epsi_path, out_dir, tag, polarization='O
             out_paths.append(png_path)
         if want_latex:
             tex_path = os.path.join(out_dir, f"{label.capitalize()}_{tag}.tex")
+            # Gray dashed zero-reference line, matching Figure-Dielectric-Functions.tex's own
+            # convention (`\addplot [gray, dashed, ...] coordinates {(0, 0) (20, 0)}`) -- no
+            # label, so _default_axis_block skips \addlegendentry for it, same effect as that
+            # template's `forget plot`.
+            zero_line = Curve(x=[xlim[0], xlim[1]], y=[0, 0], color='gray', dashed=True)
             dat_paths = export_pgfplots(
                 tex_path,
-                [Curve(x=x_values, y=values, label=symbol)],
+                [zero_line, Curve(x=x_values, y=values, label=symbol)],
                 xlabel=xlabel, ylabel=symbol,
                 xlim=xlim, ylim=ylim,
                 template_path=plot_settings.get('template_path'),
