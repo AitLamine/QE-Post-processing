@@ -1,0 +1,42 @@
+File: VB1-Valence-Band.dat
+Maximum energy value: 6.0151
+Number of successive occurrences: 3
+Corresponding wave vector(s): 0.1143, 0.1155, 0.1166
+Extracted data range: rows 89 to 111
+---
+
+File: VB2-Valence-Band.dat
+Maximum energy value: 6.0151
+Number of successive occurrences: 1
+Corresponding wave vector(s): 0.1155
+Extracted data range: rows 90 to 110
+---
+
+File: VB3-Valence-Band.dat
+Maximum energy value: 5.945
+Number of successive occurrences: 3
+Corresponding wave vector(s): 0.1143, 0.1155, 0.1166
+Extracted data range: rows 89 to 111
+---
+
+File: CB1-Conduction-Band.dat
+Minimum energy value: 8.4685
+Number of successive occurrences: 1
+Corresponding wave vector(s): 0.1155
+Extracted data range: rows 90 to 110
+---
+
+File: CB2-Conduction-Band.dat
+Minimum energy value: 9.3165
+Number of successive occurrences: 1
+Corresponding wave vector(s): 0.1155
+Extracted data range: rows 90 to 110
+---
+
+File: CB3-Conduction-Band.dat
+Minimum energy value: 12.2957
+Number of successive occurrences: 2
+Corresponding wave vector(s): 0.0, 0.2309
+Extracted data range: rows 0 to 200
+---
+

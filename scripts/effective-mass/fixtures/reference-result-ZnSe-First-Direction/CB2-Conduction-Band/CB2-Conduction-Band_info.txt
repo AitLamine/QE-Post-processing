@@ -1,0 +1,51 @@
+======================================================================
+EXTRACTED FITTING INFORMATION AND EFFECTIVE MASS
+======================================================================
+
+FITTED QUADRATIC EQUATION:
+E(k) = (48.70932556 ± 0.18046081)k² + (-11.24887999 ± 0.04169031)k + (9.96595816 ± 0.00240079)
+
+POLYNOMIAL COEFFICIENTS:
+a (k² coefficient): 48.70932556 ± 0.18046081
+b (k coefficient):  -11.24887999 ± 0.04169031
+c (constant):       9.96595816 ± 0.00240079
+
+SECOND DERIVATIVE:
+∂²E/∂k² = 97.41865112 eV·Å²
+Note: DS = a = 48.70932556
+
+EXTREMUM INFORMATION:
+Type: minimum
+k-position: 0.11546947 Å⁻¹
+Energy: 9.31650705 eV
+
+FIT QUALITY:
+R²: 0.99975299
+RMSE: 0.00003612 eV
+
+======================================================================
+EFFECTIVE MASS CALCULATION
+======================================================================
+
+Lattice constant, auto-extracted (not hardcoded):
+  Source file          : Calculations-Results-All-Directions/Calculations-Results-First-Direction/Wurtzite-ZnSe-scf-bands-Calculation.in
+  celldm(1) (Bohr)     : 7.46268000
+  celldm(3) (c/a ratio): 1.64153600
+  Bohr -> Angstrom factor used: 0.529177210903
+  a = 3.949080 Ang   c = 6.482557 Ang
+  K-path axis for this direction: a (in-plane a-axis)
+  -> lattice constant used: 3.949080 Ang = 3.9491e-10 m
+
+Parameters used:
+DS (second derivative coefficient): 48.70932556
+ℏ = 1.054572e-34 J·s
+m₀ = 9.1093837139e-31 kg
+
+Calculation steps:
+1. |∂²E/∂k²| (J) = DS × 2 × 1.602176565×10⁻¹⁹ = 1.560819e-17 J
+2. ℏ²/m₀ = 1.220853e-38 J·m²
+3. (2π/a)² = 2.531441e+20 m⁻²
+
+EFFECTIVE MASS: m*/m₀ = 0.198006
+                m* = 0.198006 × 9.109384e-31 kg
+                m* = 1.803714e-31 kg

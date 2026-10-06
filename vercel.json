@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/dielectric-function.py": { "includeFiles": "scripts/common/bin/tectonic" },
+    "api/optical-magnitudes.py": { "includeFiles": "scripts/common/bin/tectonic" },
+    "api/pdos-plotter.py": { "includeFiles": "scripts/common/bin/tectonic" },
+    "api/band-dos.py": { "includeFiles": "scripts/common/bin/tectonic" },
+    "api/effective-mass.py": { "includeFiles": "scripts/common/bin/tectonic" }
+  }
+}
