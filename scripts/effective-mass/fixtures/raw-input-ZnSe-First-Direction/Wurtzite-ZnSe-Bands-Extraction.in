@@ -1,5 +1,0 @@
- &BANDS
-                      prefix = 'Bulk-ZnSe-Wurtzite-PBESOL',
-                      outdir = './out/',
-                     filband = './dat/Bulk-ZnSe-Wurtzite-PBESOL-Bands.dat',
- /
