@@ -23,6 +23,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from file_validation import validate_file_role, FileValidationError, FILE_ROLE_KEYWORDS  # noqa: E402
 
 
+def safe_filename(name, fallback="upload"):
+    """Strip any directory components from an uploaded file's original filename before it's
+    ever joined into a scratch-dir path. The filename in a multipart Content-Disposition
+    header is attacker-controlled -- a crafted `filename="../../../etc/passwd"` would
+    otherwise let a malicious request write outside the per-request scratch directory.
+    `os.path.basename` collapses both `../` segments and absolute paths down to just the
+    final component; an empty or dot-only result falls back to a safe default name.
+    """
+    base = os.path.basename((name or "").replace("\\", "/"))
+    return base if base and base not in (".", "..") else fallback
+
+
 class PipelineError(Exception):
     """Raised for any problem we can explain in plain language to the student."""
 
@@ -95,7 +107,7 @@ def save_upload(files, field_name, scratch_dir, role=None):
     if not uploads:
         raise PipelineError(f"Missing required upload: '{field_name}'.")
     original_name, payload = uploads[0]
-    dest_path = os.path.join(scratch_dir, original_name or field_name)
+    dest_path = os.path.join(scratch_dir, safe_filename(original_name, field_name))
     with open(dest_path, "wb") as fh:
         fh.write(payload)
     if role:
@@ -126,7 +138,7 @@ def classify_uploads_by_role(files, field_name, roles, scratch_dir):
     saved = {}
     unclaimed_paths = []
     for original_name, payload in uploads:
-        dest_path = os.path.join(scratch_dir, original_name or f"upload-{len(unclaimed_paths)}")
+        dest_path = os.path.join(scratch_dir, safe_filename(original_name, f"upload-{len(unclaimed_paths)}"))
         with open(dest_path, "wb") as fh:
             fh.write(payload)
         unclaimed_paths.append((dest_path, original_name))

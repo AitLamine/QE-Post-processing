@@ -14,7 +14,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role, classify_output_folder  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role, classify_output_folder, safe_filename  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "electronic"))
 from bands_dos_plotter import plot_bands_dos  # noqa: E402
@@ -48,7 +48,7 @@ class handler(BaseTaskHandler):
         dos_path = None
         bands_path = None
         for original_name, payload in uploads:
-            dest = os.path.join(scratch_dir, original_name)
+            dest = os.path.join(scratch_dir, safe_filename(original_name))
             with open(dest, "wb") as fh:
                 fh.write(payload)
             if "dos" in (original_name or "").lower() and dos_path is None:

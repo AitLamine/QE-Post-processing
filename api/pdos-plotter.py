@@ -15,7 +15,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_output_folder  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, classify_output_folder, safe_filename  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "electronic"))
 from pdos_plotter import plot_pdos, detect_efermi_from_dos_file  # noqa: E402
@@ -61,7 +61,7 @@ class handler(BaseTaskHandler):
                     f"'{original_name}' is missing a species and/or orbital label. "
                     "Nothing was processed -- please label every file."
                 )
-            dest = os.path.join(scratch_dir, original_name)
+            dest = os.path.join(scratch_dir, safe_filename(original_name))
             with open(dest, "wb") as fh:
                 fh.write(payload)
             file_entries.append({'species': species, 'orbital': orbital, 'shell': shell, 'path': dest})
@@ -77,7 +77,7 @@ class handler(BaseTaskHandler):
         dos_uploads = files.get("dosForFermi") or []
         if energy_shift is None and dos_uploads:
             dos_name, dos_payload = dos_uploads[0]
-            dos_path = os.path.join(scratch_dir, dos_name)
+            dos_path = os.path.join(scratch_dir, safe_filename(dos_name))
             with open(dos_path, "wb") as fh:
                 fh.write(dos_payload)
             energy_shift = detect_efermi_from_dos_file(dos_path)

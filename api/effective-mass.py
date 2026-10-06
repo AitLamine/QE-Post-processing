@@ -64,6 +64,9 @@ from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _shared import safe_filename  # noqa: E402
+
 SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "effective-mass")
 )
@@ -237,7 +240,7 @@ def _run_direction(mode, parameters, files, scratch_dir, template_path):
             fname, fbytes = files[slot]
             uploaded_names.append(fname)
             dest_dir = dat_dir if subdir == "dat" else raw_dir
-            with open(os.path.join(dest_dir, fname), "wb") as fh:
+            with open(os.path.join(dest_dir, safe_filename(fname)), "wb") as fh:
                 fh.write(fbytes)
         if missing:
             raise PipelineError(
@@ -261,7 +264,7 @@ def _run_direction(mode, parameters, files, scratch_dir, template_path):
             )
         fname, fbytes = files["bandFile"]
         uploaded_names.append(fname)
-        band_path = os.path.join(raw_dir, fname)
+        band_path = os.path.join(raw_dir, safe_filename(fname))
         with open(band_path, "wb") as fh:
             fh.write(fbytes)
 
