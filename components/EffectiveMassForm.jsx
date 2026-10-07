@@ -1,36 +1,11 @@
 'use client'
 import { useState } from 'react'
 import UploadWidget from './UploadWidget'
+import FileSlot from './FileSlot'
 import JobStatusIndicator from './JobStatusIndicator'
 import { useLang } from '@/lib/LangContext'
 
 const AXIS_LABELS = { x: 'X-direction', y: 'Y-direction', z: 'Z-direction' }
-
-// Dual-mode file slot: "upload" renders the normal UploadWidget unchanged; "manual" renders a
-// textarea instead, so a student can paste the raw file content rather than upload their real
-// QE calculation files. Either branch calls the same `onChange(files)` the caller already uses.
-function DualFileSlot({ mode, label, filename, placeholder, files, onChange }) {
-  const [text, setText] = useState('')
-  if (mode === 'upload') {
-    return <UploadWidget label={label} files={files} onChange={onChange} />
-  }
-  return (
-    <div className="param-field">
-      <label>{label} — paste its content</label>
-      <textarea
-        className="manual-paste-textarea"
-        rows={6}
-        value={text}
-        placeholder={placeholder}
-        onChange={(e) => {
-          const value = e.target.value
-          setText(value)
-          onChange(value.trim() ? [new File([value], filename, { type: 'text/plain' })] : [])
-        }}
-      />
-    </div>
-  )
-}
 
 // Processes exactly one k-direction per submission (not 1-3 batched into one request): a
 // student wanting more than one direction runs this module once per direction. Batching
@@ -41,7 +16,6 @@ function DualFileSlot({ mode, label, filename, placeholder, files, onChange }) {
 // generic flat-upload TaskPage flow can express, so this module gets its own form.
 export default function EffectiveMassForm({ module }) {
   const { t } = useLang()
-  const [inputMode, setInputMode] = useState('upload')
   const [detectionMode, setDetectionMode] = useState('auto')
   const [directionAxis, setDirectionAxis] = useState('x')
   const [customLabel, setCustomLabel] = useState('')
@@ -135,26 +109,12 @@ export default function EffectiveMassForm({ module }) {
   return (
     <div>
       <div className="section-block">
-        <h2>0. Input source</h2>
-        <p className="manual-help">{t('manualEntryIntro')}</p>
-        <div className="input-mode-toggle">
-          <label className={`mode-toggle-option${inputMode === 'upload' ? ' checked' : ''}`}>
-            <input type="radio" name="emInputMode" checked={inputMode === 'upload'} onChange={() => setInputMode('upload')} />
-            {t('modeUploadLabel')}
-          </label>
-          <label className={`mode-toggle-option${inputMode === 'manual' ? ' checked' : ''}`}>
-            <input type="radio" name="emInputMode" checked={inputMode === 'manual'} onChange={() => setInputMode('manual')} />
-            {t('modeManualLabel')}
-          </label>
-        </div>
-      </div>
-
-      <div className="section-block">
         <h2>1. This direction</h2>
         <p className="manual-help">
           One k-direction per run. Want more than one? Submit this form again for the next
           direction once this one's done — each run downloads its own zip with that
-          direction's mass value and fit plot.
+          direction's mass value and fit plot. Each file below can be uploaded (default) or
+          pasted, independently.
         </p>
         <div className="param-field">
           <label>Detection mode</label>
@@ -182,41 +142,27 @@ export default function EffectiveMassForm({ module }) {
 
         {detectionMode === 'auto' ? (
           <>
-            <DualFileSlot mode={inputMode} label="Band-structure .dat.gnu file" files={datgnu}
-                          filename="Bands.dat.gnu"
-                          placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...\n\n0.000000  -1.234000\n...'}
-                          onChange={setDatgnu} />
-            <div style={{ marginTop: 12 }}>
-              <DualFileSlot mode={inputMode} label="scf-bands calculation .in file" files={scfBandsIn}
-                            filename="scf-bands-Calculation.in"
-                            placeholder={'&CONTROL\n  calculation = \'scf\'\n...\nibrav = 4\ncelldm(1) = 6.1234\ncelldm(3) = 1.602\n...'}
-                            onChange={setScfBandsIn} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <DualFileSlot mode={inputMode} label="scf-bands calculation .out file" files={scfBandsOut}
-                            filename="scf-bands-Calculation.out"
-                            placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
-                            onChange={setScfBandsOut} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <DualFileSlot mode={inputMode} label="Bands-Calculation .in file" files={bandsCalcIn}
-                            filename="Bands-Calculation.in"
-                            placeholder={'&CONTROL\n  calculation = \'bands\'\n...\nK_POINTS crystal_b\n5\n0.0 0.0 0.0 20 !G\n...'}
-                            onChange={setBandsCalcIn} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <DualFileSlot mode={inputMode} label="Bands-Calculation .out file" files={bandsCalcOut}
-                            filename="Bands-Calculation.out"
-                            placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
-                            onChange={setBandsCalcOut} />
-            </div>
+            <FileSlot label="Band-structure .dat.gnu file" filename="Bands.dat.gnu"
+                      placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...\n\n0.000000  -1.234000\n...'}
+                      onFilesChange={setDatgnu} />
+            <FileSlot label="scf-bands calculation .in file" filename="scf-bands-Calculation.in"
+                      placeholder={'&CONTROL\n  calculation = \'scf\'\n...\nibrav = 4\ncelldm(1) = 6.1234\ncelldm(3) = 1.602\n...'}
+                      onFilesChange={setScfBandsIn} />
+            <FileSlot label="scf-bands calculation .out file" filename="scf-bands-Calculation.out"
+                      placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
+                      onFilesChange={setScfBandsOut} />
+            <FileSlot label="Bands-Calculation .in file" filename="Bands-Calculation.in"
+                      placeholder={'&CONTROL\n  calculation = \'bands\'\n...\nK_POINTS crystal_b\n5\n0.0 0.0 0.0 20 !G\n...'}
+                      onFilesChange={setBandsCalcIn} />
+            <FileSlot label="Bands-Calculation .out file" filename="Bands-Calculation.out"
+                      placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
+                      onFilesChange={setBandsCalcOut} />
           </>
         ) : (
           <>
-            <DualFileSlot mode={inputMode} label="Band-structure data file" files={bandFile}
-                          filename="band-data.dat.gnu"
-                          placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...'}
-                          onChange={setBandFile} />
+            <FileSlot label="Band-structure data file" filename="band-data.dat.gnu"
+                      placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...'}
+                      onFilesChange={setBandFile} />
             <div className="param-field" style={{ marginTop: 12 }}>
               <label>Lattice constant a (Angstrom)</label>
               <input type="text" value={latticeConstant} onChange={(e) => setLatticeConstant(e.target.value)} />

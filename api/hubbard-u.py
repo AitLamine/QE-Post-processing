@@ -1,10 +1,10 @@
 """Vercel Python Function for the "Hubbard U (linear response) reader" module.
 
 Endpoint: POST /api/hubbard-u
-Fields expected: moduleId, parameters (JSON: atomsOrbitals), files: files (hp.x output,
+Fields expected: moduleId, parameters (JSON: atomsOrbitals), files: hp (hp.x output,
 any material -- see scripts/hubbard/hp_reader.py for the HUBBARD-card format this relies on),
-matching the generic TaskPage.jsx upload flow's field name (same convention as
-bader-charge-analyzer).
+sent under its own field name by TaskPage.jsx's per-role FileSlot (module.manualEntryFiles[0].key
+== "hp"), not a shared "files" field.
 Response: application/zip (tables/hubbard-values.csv), or JSON error.
 """
 
@@ -25,7 +25,7 @@ class handler(BaseTaskHandler):
     MODULE_ID = "hubbard-u-reader"
 
     def handle_task(self, fields, files, parameters, scratch_dir):
-        hp_path = save_upload(files, "files", scratch_dir, role="hp")
+        hp_path = save_upload(files, "hp", scratch_dir, role="hp")
 
         try:
             result = parse_hubbard_card(hp_path)

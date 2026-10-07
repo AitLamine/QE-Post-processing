@@ -39,7 +39,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, save_upload  # noqa: E402
 
 TAUC_SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "tauc")
@@ -119,8 +119,8 @@ class handler(BaseTaskHandler):
     MODULE_ID = "tauc-plot-extractor"
 
     def handle_task(self, fields, files, parameters, scratch_dir):
-        matched = classify_uploads_by_role(files, "files", ["epsr", "epsi"], scratch_dir)
-        epsr_path, epsi_path = matched["epsr"], matched["epsi"]
+        epsr_path = save_upload(files, "epsr", scratch_dir, role="epsr")
+        epsi_path = save_upload(files, "epsi", scratch_dir, role="epsi")
 
         transition_type = parameters.get("transitionType") or "Direct"
         exponent = 2.0 if transition_type.lower().startswith("direct") else 0.5

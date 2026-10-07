@@ -14,7 +14,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role, classify_output_folder  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, classify_output_folder, save_upload  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "optical"))
 from optical_magnitudes_plotter import plot_optical_magnitudes  # noqa: E402
@@ -41,9 +41,8 @@ class handler(BaseTaskHandler):
     MODULE_ID = "optical-magnitudes-plotter"
 
     def handle_task(self, fields, files, parameters, scratch_dir):
-        matched = classify_uploads_by_role(files, "files", ["epsr", "epsi"], scratch_dir)
-        epsr_path = matched["epsr"]
-        epsi_path = matched["epsi"]
+        epsr_path = save_upload(files, "epsr", scratch_dir, role="epsr")
+        epsi_path = save_upload(files, "epsi", scratch_dir, role="epsi")
 
         magnitudes = parameters.get("magnitudes") or ["Refractive index"]
         magnitudes = [m for m in magnitudes if m in MAGNITUDE_FUNCS]

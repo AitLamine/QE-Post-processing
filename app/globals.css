@@ -121,18 +121,56 @@ a { color: inherit; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; background: var(--dim); border-color: var(--dim); }
 
 /* ── Footer ── */
-.footer {
+.app-footer {
   border-top: 1px solid var(--border);
-  padding: 14px 20px;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
-  font-size: 0.7rem;
-  color: var(--dim);
-  font-family: 'Share Tech Mono', monospace;
 }
+.footer-left { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; row-gap: 2px; }
+.footer-dev { font-size: 0.7rem; color: var(--dim); font-family: 'Share Tech Mono', monospace; letter-spacing: 0.5px; }
+.footer-dev strong { color: var(--accent2); font-weight: 600; }
+.footer-dev-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.footer-dev-link strong {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent2) 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: 0.2s;
+}
+.footer-dev-link:hover,
+.footer-dev-link:focus-visible { color: var(--accent); }
+.footer-dev-link:hover strong,
+.footer-dev-link:focus-visible strong {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+.footer-dev-link-icon { font-size: 0.65rem; line-height: 1; }
 .footer-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.footer-version { font-size: 0.65rem; color: var(--dim); font-family: 'Share Tech Mono', monospace; }
+.footer-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.footer-github-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+  cursor: pointer;
+  transition: 0.2s;
+  text-decoration: none;
+}
+.footer-github-link:hover { color: var(--accent); }
 
 /* ── Intro ── */
 .intro { margin-bottom: 32px; }
@@ -291,6 +329,20 @@ a { color: inherit; }
 }
 .manual-paste-textarea:focus { border-color: var(--accent); outline: none; }
 .manual-paste-textarea::placeholder { color: var(--dim); opacity: 0.6; }
+
+/* ── Per-field upload/paste choice (FileSlot) ── */
+.file-slot { margin-bottom: 18px; }
+.file-slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.file-slot-header label { margin-bottom: 0; }
+.file-slot-toggle { margin-bottom: 0; gap: 6px; }
+.file-slot-toggle .mode-toggle-option { padding: 3px 8px; font-size: 0.7rem; }
 
 /* ── Parameter form ── */
 .param-field { margin-bottom: 14px; }

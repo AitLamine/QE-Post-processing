@@ -20,7 +20,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "common"))
-from file_validation import validate_file_role, FileValidationError, FILE_ROLE_KEYWORDS  # noqa: E402
+from file_validation import validate_file_role, FileValidationError  # noqa: E402
 
 
 def safe_filename(name, fallback="upload"):
@@ -116,51 +116,6 @@ def save_upload(files, field_name, scratch_dir, role=None):
         except FileValidationError as e:
             raise PipelineError(str(e))
     return dest_path
-
-
-def classify_uploads_by_role(files, field_name, roles, scratch_dir):
-    """Match each of `roles` (ordered list of role keys from FILE_ROLE_KEYWORDS) to one of the
-    files uploaded under `field_name` (a flat multi-file field), by content/filename keyword --
-    not by upload order, since a student may select files in any order.
-
-    Fails closed: if a role matches no uploaded file, or an uploaded file matches no role,
-    the whole request is rejected with a plain-language explanation rather than silently
-    guessing or processing a partial/misaligned set.
-
-    Returns {role: saved_path}.
-    """
-    uploads = files.get(field_name) or []
-    if len(uploads) < len(roles):
-        raise PipelineError(
-            f"Expected {len(roles)} file(s) ({', '.join(roles)}) but only {len(uploads)} were uploaded."
-        )
-
-    saved = {}
-    unclaimed_paths = []
-    for original_name, payload in uploads:
-        dest_path = os.path.join(scratch_dir, safe_filename(original_name, f"upload-{len(unclaimed_paths)}"))
-        with open(dest_path, "wb") as fh:
-            fh.write(payload)
-        unclaimed_paths.append((dest_path, original_name))
-
-    for role in roles:
-        match_idx = None
-        for idx, (path, original_name) in enumerate(unclaimed_paths):
-            try:
-                validate_file_role(path, original_name, role)
-            except FileValidationError:
-                continue
-            match_idx = idx
-            break
-        if match_idx is None:
-            raise PipelineError(
-                f"Could not find an uploaded file matching the expected '{role}' file "
-                f"(looked for {FILE_ROLE_KEYWORDS.get(role)} in each file's name or content). "
-                "Nothing was processed -- please check your uploads and try again."
-            )
-        saved[role] = unclaimed_paths.pop(match_idx)[0]
-
-    return saved
 
 
 class BaseTaskHandler(BaseHTTPRequestHandler):

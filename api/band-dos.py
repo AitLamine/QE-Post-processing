@@ -2,8 +2,10 @@
 
 Endpoint: POST /api/band-dos
 Fields expected: moduleId, parameters (JSON: energyShift, kPathTicks, occupiedSplit,
-figureFormat, xRange, yRange), files: bandsGnu (bands.x .dat.gnu), dos (dos.x output),
-templateFile (optional custom .tex template for the pgfplots export).
+figureFormat, xRange, yRange), files: bandsGnu (bands.x .dat.gnu), dos (dos.x output) --
+each sent under its own field name by TaskPage.jsx's per-role FileSlots (module.manualEntryFiles
+keys), not guessed from a shared "files" field -- templateFile (optional custom .tex template
+for the pgfplots export).
 Response: application/zip (figures/ + tables/), or JSON error.
 """
 
@@ -14,7 +16,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role, classify_output_folder, safe_filename  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, classify_output_folder, save_upload  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "electronic"))
 from bands_dos_plotter import plot_bands_dos  # noqa: E402
@@ -40,28 +42,9 @@ class handler(BaseTaskHandler):
 
     def handle_task(self, fields, files, parameters, scratch_dir):
         # No fixed keyword identifies a bands.x .dat.gnu file's content (it's just numbers), so
-        # only the dos.x file is keyword-validated; the other upload is taken positionally.
-        uploads = files.get("files") or []
-        if len(uploads) < 2:
-            raise PipelineError("Expected 2 files: a bands.x .dat.gnu file and a dos.x output file.")
-
-        dos_path = None
-        bands_path = None
-        for original_name, payload in uploads:
-            dest = os.path.join(scratch_dir, safe_filename(original_name))
-            with open(dest, "wb") as fh:
-                fh.write(payload)
-            if "dos" in (original_name or "").lower() and dos_path is None:
-                dos_path = dest
-            elif bands_path is None:
-                bands_path = dest
-            elif dos_path is None:
-                dos_path = dest
-        if not dos_path or not bands_path:
-            raise PipelineError(
-                "Could not tell the bands file and the dos.x file apart. Please make sure the "
-                "dos.x output filename contains 'dos' (case-insensitive)."
-            )
+        # it isn't role-validated; the dos.x file gets a lightweight content check.
+        bands_path = save_upload(files, "bandsGnu", scratch_dir)
+        dos_path = save_upload(files, "dos", scratch_dir)
 
         energy_shift = None
         raw_shift = (parameters.get("energyShift") or "").strip()

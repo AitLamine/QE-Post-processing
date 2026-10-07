@@ -1,18 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Header from './Header'
-import { LangContext, useLang } from '@/lib/LangContext'
-
-function Footer() {
-  const { t } = useLang()
-  return (
-    <footer className="footer">
-      <span className="footer-dot" />
-      <span>{t('footerNote')}</span>
-      <span className="footer-dot" />
-    </footer>
-  )
-}
+import Footer from './Footer'
+import { LangContext } from '@/lib/LangContext'
 
 export default function AppShell({ children }) {
   const [theme, setThemeState] = useState('dark')

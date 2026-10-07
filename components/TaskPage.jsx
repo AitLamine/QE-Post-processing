@@ -2,8 +2,8 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import UploadWidget from './UploadWidget'
-import PdosFileLabels from './PdosFileLabels'
-import ManualPdosEntries from './ManualPdosEntries'
+import FileSlot from './FileSlot'
+import PdosUploadSection from './PdosUploadSection'
 import EffectiveMassForm from './EffectiveMassForm'
 import ParameterForm from './ParameterForm'
 import JobStatusIndicator from './JobStatusIndicator'
@@ -37,12 +37,11 @@ export default function TaskPage({ module }) {
   const [jobStatus, setJobStatus] = useState('idle')
   const [error, setError] = useState('')
 
-  // Secondary input mode: paste raw file content instead of uploading, for students who'd
-  // rather not hand over their actual calculation/structure files. "upload" stays the
-  // default/primary path with unchanged behavior; everything below only applies when the
-  // student explicitly switches to "manual".
-  const [inputMode, setInputMode] = useState('upload')
-  const [manualTexts, setManualTexts] = useState({})
+  // Per-role file slots (band-dos, dielectric-function, optical-magnitudes, tauc-plot,
+  // bader-charge, hubbard-u): each entry in module.manualEntryFiles gets its own FileSlot,
+  // which independently offers "upload" (default) or "paste instead" for that one file --
+  // not a whole-form mode, a per-field choice. Keyed by role (f.key) -> File[].
+  const [slotFiles, setSlotFiles] = useState({})
   const [manualPdosEntries, setManualPdosEntries] = useState([{ species: '', orbital: '', shell: '', text: '' }])
   const [manualDosForFermiText, setManualDosForFermiText] = useState('')
   const [templateFile, setTemplateFile] = useState([])
@@ -52,30 +51,30 @@ export default function TaskPage({ module }) {
   // pgfplots figure (i.e. they expose a figureFormat choice); bader-charge/hubbard-u are
   // tables-only and effective-mass has its own separate form with its own upload already.
   const supportsLatexTemplate = module.parameters.some((p) => p.id === 'figureFormat')
-  const hasManualMode = isPdosModule || (module.manualEntryFiles?.length > 0)
+  const hasFileSlots = !isPdosModule && module.manualEntryFiles?.length > 0
 
-  const manualFiles = (module.manualEntryFiles || [])
-    .filter((f) => (manualTexts[f.key] || '').trim())
-    .map((f) => new File([manualTexts[f.key]], f.filename, { type: 'text/plain' }))
+  function updateSlotFiles(key, nextFiles) {
+    setSlotFiles((prev) => ({ ...prev, [key]: nextFiles }))
+  }
+
+  const slotFilesList = hasFileSlots
+    ? (module.manualEntryFiles || []).map((f) => (slotFiles[f.key] || [])[0]).filter(Boolean)
+    : []
 
   const manualPdosFiles = manualPdosEntries
     .filter((e) => e.text.trim())
     .map((e, i) => new File([e.text], `pasted-pdos-${i + 1}.dat`, { type: 'text/plain' }))
 
-  const activeFiles = inputMode === 'upload' ? files : (isPdosModule ? manualPdosFiles : manualFiles)
-  const activePdosLabels = inputMode === 'upload'
-    ? pdosLabels
-    : manualPdosEntries.filter((e) => e.text.trim()).map((e) => ({ species: e.species, orbital: e.orbital, shell: e.shell }))
-  const activeDosForFermi = inputMode === 'upload'
-    ? dosForFermi
-    : (manualDosForFermiText.trim() ? [new File([manualDosForFermiText], 'dos-for-fermi.dos', { type: 'text/plain' })] : [])
+  const activeFiles = hasFileSlots ? slotFilesList : (isPdosModule ? manualPdosFiles : files)
+  const activePdosLabels = isPdosModule
+    ? manualPdosEntries.filter((e) => e.text.trim()).map((e) => ({ species: e.species, orbital: e.orbital, shell: e.shell }))
+    : pdosLabels
+  const activeDosForFermi = isPdosModule && manualDosForFermiText.trim()
+    ? [new File([manualDosForFermiText], 'dos-for-fermi.dos', { type: 'text/plain' })]
+    : dosForFermi
 
   const canSubmit = activeFiles.length > 0 && jobStatus !== 'processing'
   const inputFiles = moduleInputFiles(module, lang)
-
-  function updateManualText(key, text) {
-    setManualTexts((prev) => ({ ...prev, [key]: text }))
-  }
 
   async function handleSubmit() {
     setError('')
@@ -88,7 +87,16 @@ export default function TaskPage({ module }) {
         ? { ...values, pdosFileLabels: activeFiles.map((f, i) => ({ filename: f.name, ...(activePdosLabels[i] || {}) })) }
         : values
       formData.append('parameters', JSON.stringify(submittedValues))
-      activeFiles.forEach((file) => formData.append('files', file))
+      if (hasFileSlots) {
+        // Each slot's file goes under its own field name -- the backend knows exactly which
+        // role each upload is by field name alone, no filename/content guessing needed.
+        (module.manualEntryFiles || []).forEach((f) => {
+          const file = (slotFiles[f.key] || [])[0]
+          if (file) formData.append(f.key, file)
+        })
+      } else {
+        activeFiles.forEach((file) => formData.append('files', file))
+      }
       compareFiles.forEach((file) => formData.append('compareFiles', file))
       activeDosForFermi.forEach((file) => formData.append('dosForFermi', file))
       if (templateFile[0]) formData.append('templateFile', templateFile[0])
@@ -132,67 +140,36 @@ export default function TaskPage({ module }) {
         <>
       <div className="section-block">
         <h2>{t('sectionUpload')}</h2>
-        {hasManualMode && (
-          <div className="input-mode-toggle">
-            <label className={`mode-toggle-option${inputMode === 'upload' ? ' checked' : ''}`}>
-              <input type="radio" name="inputMode" checked={inputMode === 'upload'} onChange={() => setInputMode('upload')} />
-              {t('modeUploadLabel')}
-            </label>
-            <label className={`mode-toggle-option${inputMode === 'manual' ? ' checked' : ''}`}>
-              <input type="radio" name="inputMode" checked={inputMode === 'manual'} onChange={() => setInputMode('manual')} />
-              {t('modeManualLabel')}
-            </label>
-          </div>
-        )}
 
-        {inputMode === 'upload' || !hasManualMode ? (
+        {hasFileSlots ? (
           <>
-            <UploadWidget checklist={inputFiles} files={files} onChange={setFiles} />
-            {isPdosModule && (
-              <>
-                <PdosFileLabels files={files} labels={pdosLabels} onChange={setPdosLabels} />
-                <div style={{ marginTop: 16 }}>
-                  <UploadWidget
-                    label="dos.x output (optional — only used to auto-detect the VBM/Fermi energy)"
-                    files={dosForFermi}
-                    onChange={setDosForFermi}
-                  />
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="manual-entry">
             <p className="manual-help">{t('manualEntryIntro')}</p>
-            {isPdosModule ? (
-              <>
-                <ManualPdosEntries entries={manualPdosEntries} onChange={setManualPdosEntries} />
-                <div className="param-field" style={{ marginTop: 16 }}>
-                  <label>{t('manualDosForFermiLabel')}</label>
-                  <textarea
-                    className="manual-paste-textarea"
-                    rows={4}
-                    value={manualDosForFermiText}
-                    onChange={(e) => setManualDosForFermiText(e.target.value)}
-                    placeholder={'#  E (eV)   dos(E)     Int dos(E) EFermi =    5.938 eV\n...'}
-                  />
-                </div>
-              </>
-            ) : (
-              (module.manualEntryFiles || []).map((f) => (
-                <div className="param-field" key={f.key} style={{ marginTop: 12 }}>
-                  <label>{manualEntryLabel(module, f.key, f.label, lang)}</label>
-                  <textarea
-                    className="manual-paste-textarea"
-                    rows={8}
-                    value={manualTexts[f.key] || ''}
-                    onChange={(e) => updateManualText(f.key, e.target.value)}
-                    placeholder={f.placeholder}
-                  />
-                </div>
-              ))
-            )}
-          </div>
+            {(module.manualEntryFiles || []).map((f) => (
+              <FileSlot
+                key={f.key}
+                label={manualEntryLabel(module, f.key, f.label, lang)}
+                filename={f.filename}
+                placeholder={f.placeholder}
+                onFilesChange={(nextFiles) => updateSlotFiles(f.key, nextFiles)}
+              />
+            ))}
+          </>
+        ) : isPdosModule ? (
+          <PdosUploadSection
+            files={files}
+            setFiles={setFiles}
+            pdosLabels={pdosLabels}
+            setPdosLabels={setPdosLabels}
+            dosForFermi={dosForFermi}
+            setDosForFermi={setDosForFermi}
+            manualPdosEntries={manualPdosEntries}
+            setManualPdosEntries={setManualPdosEntries}
+            manualDosForFermiText={manualDosForFermiText}
+            setManualDosForFermiText={setManualDosForFermiText}
+            t={t}
+          />
+        ) : (
+          <UploadWidget checklist={inputFiles} files={files} onChange={setFiles} />
         )}
 
         {module.compareMode && (

@@ -4,7 +4,8 @@ Endpoint: POST /api/bader-charge
 Fields expected: moduleId, parameters (JSON: elementOrder, valenceElectrons, formalCharges),
 files: acf (ACF.dat, any material -- see scripts/bader/bader_reader.py for the fixed column
 format this relies on, and for the net-charge/ionicity/covalency formulas ported from the
-user's own validated Bader-charge analysis).
+user's own validated Bader-charge analysis), sent under its own field name by TaskPage.jsx's
+per-role FileSlot (module.manualEntryFiles[0].key == "acf").
 Response: application/zip (tables/bader-charges.csv + charge-summary-by-species.csv), or JSON error.
 """
 
@@ -15,7 +16,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, classify_uploads_by_role  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, save_upload  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "bader"))
 from bader_reader import parse_acf, write_table, summarize_by_species  # noqa: E402
@@ -25,8 +26,7 @@ class handler(BaseTaskHandler):
     MODULE_ID = "bader-charge-analyzer"
 
     def handle_task(self, fields, files, parameters, scratch_dir):
-        matched = classify_uploads_by_role(files, "files", ["acf"], scratch_dir)
-        acf_path = matched["acf"]
+        acf_path = save_upload(files, "acf", scratch_dir, role="acf")
 
         try:
             rows, meta = parse_acf(acf_path)
