@@ -1,12 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import UploadWidget from './UploadWidget'
 
 // One file-role slot with its own independent upload/paste choice -- not a whole-form mode,
 // a per-field one. "Upload" is the default (real calculation files are what the parser is
 // built around); "Paste" is there for a student who'd rather not hand over this one
 // particular file but can still type/paste the numbers it would have contained.
-export default function FileSlot({ label, filename, placeholder, onFilesChange }) {
+//
+// `sampleText` + `fillTrigger`: when the page's "Try with sample data" action fires, the
+// parent bumps `fillTrigger` for every slot at once; each slot reacts by switching itself to
+// paste mode and filling in its own `sampleText` (the module's own placeholder content --
+// real, validated example data, not placeholder lorem-ipsum). A no-op until the first bump.
+export default function FileSlot({ label, filename, placeholder, sampleText, fillTrigger, onFilesChange }) {
   const [mode, setMode] = useState('upload')
   const [uploaded, setUploaded] = useState([])
   const [text, setText] = useState('')
@@ -34,6 +39,16 @@ export default function FileSlot({ label, filename, placeholder, onFilesChange }
     setText(value)
     if (mode === 'paste') report('paste', uploaded, value)
   }
+
+  useEffect(() => {
+    if (!fillTrigger) return
+    const value = sampleText || ''
+    setMode('paste')
+    setText(value)
+    report('paste', uploaded, value)
+    // Only react to the trigger changing, not to every render -- intentionally narrow deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fillTrigger])
 
   return (
     <div className="param-field file-slot">

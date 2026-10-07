@@ -1,11 +1,12 @@
 'use client'
 import { useLang } from '@/lib/LangContext'
 
-export default function SampleDataLink() {
+export default function SampleDataLink({ onClick }) {
   const { t } = useLang()
+  if (!onClick) return null
   return (
-    <span className="sample-link" data-disabled="true" title={t('sampleLinkTitle')}>
+    <button type="button" className="sample-link" title={t('sampleLinkTitle')} onClick={onClick}>
       {t('sampleLinkText')}
-    </span>
+    </button>
   )
 }

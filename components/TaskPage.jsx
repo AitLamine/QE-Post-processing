@@ -45,6 +45,9 @@ export default function TaskPage({ module }) {
   const [manualPdosEntries, setManualPdosEntries] = useState([{ species: '', orbital: '', shell: '', text: '' }])
   const [manualDosForFermiText, setManualDosForFermiText] = useState('')
   const [templateFile, setTemplateFile] = useState([])
+  // Bumped by "Try with sample data"; each FileSlot (and PdosUploadSection, for pdos) reacts
+  // to the change by filling itself in with real, validated example content.
+  const [sampleTrigger, setSampleTrigger] = useState(0)
 
   const isPdosModule = module.id === 'pdos-plotter'
   // Custom-template upload is only meaningful for modules whose backend actually produces a
@@ -150,6 +153,8 @@ export default function TaskPage({ module }) {
                 label={manualEntryLabel(module, f.key, f.label, lang)}
                 filename={f.filename}
                 placeholder={f.placeholder}
+                sampleText={f.placeholder}
+                fillTrigger={sampleTrigger}
                 onFilesChange={(nextFiles) => updateSlotFiles(f.key, nextFiles)}
               />
             ))}
@@ -166,6 +171,7 @@ export default function TaskPage({ module }) {
             setManualPdosEntries={setManualPdosEntries}
             manualDosForFermiText={manualDosForFermiText}
             setManualDosForFermiText={setManualDosForFermiText}
+            sampleTrigger={sampleTrigger}
             t={t}
           />
         ) : (
@@ -182,7 +188,9 @@ export default function TaskPage({ module }) {
             />
           </div>
         )}
-        <SampleDataLink />
+        {(hasFileSlots || isPdosModule) && (
+          <SampleDataLink onClick={() => setSampleTrigger((n) => n + 1)} />
+        )}
       </div>
 
       <div className="section-block">
