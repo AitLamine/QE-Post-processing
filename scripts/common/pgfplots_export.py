@@ -39,6 +39,21 @@ class Curve:
     dashed: bool = False
 
 
+#  pgfplots computes tick-label precision/positions from the axis span; an extremely narrow but
+# non-zero span (e.g. 1e-10 eV) can blow past TeX's internal dimension limit ("Dimension too
+# large") during that computation, well before the span is literally zero. No physically
+# meaningful axis in this app needs finer resolution than this, so a degenerate-but-nonzero
+# range gets widened to a sane floor instead of being handed to pgfplots as-is.
+MIN_AXIS_SPAN = 1e-6
+
+
+def _widen_if_degenerate(lo: float, hi: float) -> tuple:
+    if hi - lo < MIN_AXIS_SPAN:
+        mid = (lo + hi) / 2
+        return (mid - MIN_AXIS_SPAN / 2, mid + MIN_AXIS_SPAN / 2)
+    return (lo, hi)
+
+
 def auto_range(values: Iterable[float], pad_frac: float = 0.01):
     """[min, max] of `values` padded by `pad_frac` of the span on each side.
 
@@ -53,7 +68,7 @@ def auto_range(values: Iterable[float], pad_frac: float = 0.01):
     if span == 0:
         return (lo - 1, hi + 1)
     pad = span * pad_frac
-    return (lo - pad, hi + pad)
+    return _widen_if_degenerate(lo - pad, hi + pad)
 
 
 def resolve_range(explicit_range: Optional[str], values: Iterable[float], pad_frac: float = 0.01):
@@ -62,7 +77,9 @@ def resolve_range(explicit_range: Optional[str], values: Iterable[float], pad_fr
         parts = [p.strip() for p in explicit_range.split(",")]
         if len(parts) == 2:
             try:
-                return (float(parts[0]), float(parts[1]))
+                lo, hi = float(parts[0]), float(parts[1])
+                if hi > lo:
+                    return _widen_if_degenerate(lo, hi)
             except ValueError:
                 pass
     return auto_range(values, pad_frac)
