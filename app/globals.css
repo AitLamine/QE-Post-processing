@@ -76,13 +76,10 @@ a { color: inherit; }
 .header-controls { display: flex; align-items: center; gap: 14px; justify-self: end; }
 .header-beta-badge {
   justify-self: center;
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   color: var(--dim);
-  border: 1px solid var(--border);
-  padding: 3px 10px;
-  border-radius: 2px;
   font-family: 'Share Tech Mono', monospace;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   white-space: nowrap;
 }
