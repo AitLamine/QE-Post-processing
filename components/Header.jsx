@@ -12,7 +12,8 @@ export default function Header({ theme, onToggleTheme }) {
         <h1>QE Post-processing Lab</h1>
         <span className="header-dot" style={{ background: 'var(--accent2)' }} />
       </Link>
-      <div style={{ flex: 1 }} />
+      <span className="header-beta-badge">{t('headerBetaBadge')}</span>
+      <div className="header-controls">
       <button
         className="btn-action"
         onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
@@ -27,6 +28,7 @@ export default function Header({ theme, onToggleTheme }) {
       >
         {theme === 'dark' ? '☀️' : '🌙'}
       </button>
+      </div>
     </header>
   )
 }
