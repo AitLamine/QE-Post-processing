@@ -76,8 +76,9 @@ a { color: inherit; }
 .header-controls { display: flex; align-items: center; gap: 14px; justify-self: end; }
 .header-beta-badge {
   justify-self: center;
-  font-size: 0.68rem;
-  color: var(--dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
   font-family: 'Share Tech Mono', monospace;
   letter-spacing: 1px;
   text-transform: uppercase;
