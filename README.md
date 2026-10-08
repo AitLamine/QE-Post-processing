@@ -1,7 +1,7 @@
 # QE Post-processing Lab
 
 GUI scaffold for the self-service DFT post-processing tool described in
-`Post-Processing-WebApp-Outline.md` (in the sibling `CrystalEdu-App` folder). This is the
+`Post-Processing-WebApp-Outline.md`. This is the
 interface only: uploads, parameter forms, and zip downloads all work end to end, but every
 module's actual processing script is a placeholder for now.
 
