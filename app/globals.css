@@ -193,7 +193,7 @@ a { color: inherit; }
   letter-spacing: 1px;
   margin-bottom: 10px;
 }
-.intro p { font-size: 0.9rem; line-height: 1.65; color: var(--text); max-width: 68ch; }
+.intro p { font-size: 0.9rem; line-height: 1.65; color: var(--text); }
 .intro p + p { margin-top: 8px; }
 
 /* ── Category section ── */
