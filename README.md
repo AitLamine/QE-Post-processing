@@ -7,7 +7,7 @@ module's actual processing script is a placeholder for now.
 
 ## Scope
 
-- Post-processing and input-generation only. No page runs a real Quantum ESPRESSO calculation.
+- Post-processing only. No page runs a real Quantum ESPRESSO calculation, and none of them generate input files for one either.
 - Every module page is generated from a single template (`components/TaskPage.jsx`) driven by
   `lib/modules.js`, which mirrors the outline's tables. To add a real script for a module: replace
   the placeholder logic in `app/api/process/route.js` for that `moduleId`, then update its `status`

@@ -4,7 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 
 export const metadata = {
   title: 'QE Post-processing Lab',
-  description: 'Self-service post-processing and input-generation tools for DFT calculations.',
+  description: 'Self-service post-processing tools for DFT calculations.',
 }
 
 export default function RootLayout({ children }) {
