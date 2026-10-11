@@ -39,7 +39,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import BaseTaskHandler, PipelineError, save_upload  # noqa: E402
+from _shared import BaseTaskHandler, PipelineError, save_upload, subprocess_env  # noqa: E402
 
 TAUC_SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "tauc")
@@ -74,7 +74,9 @@ def _run_slope_line(input_file, output_file, fit_window, electronic_gap):
             cmd += ["--electronic-gap", str(float(electronic_gap))]
         except ValueError:
             pass
-    result = subprocess.run(cmd, cwd=os.path.dirname(input_file), capture_output=True, text=True)
+    result = subprocess.run(
+        cmd, cwd=os.path.dirname(input_file), capture_output=True, text=True, env=subprocess_env()
+    )
     # slope_line_bandgap.py can exit 0 while still finding no valid fit candidates (it just
     # prints "No results to save" and skips writing output_file in that case), so success can't
     # be judged from the exit code alone -- check the file actually landed before trusting it.
