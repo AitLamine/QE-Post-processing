@@ -65,7 +65,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _shared import safe_filename  # noqa: E402
+from _shared import safe_filename, subprocess_env  # noqa: E402
 
 SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "effective-mass")
@@ -133,7 +133,7 @@ def _parse_multipart(content_type_header, body_bytes):
 # ---------------------------------------------------------------------------
 
 def _run(cmd, cwd):
-    return subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
+    return subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True, env=subprocess_env())
 
 
 def _friendly_subprocess_error(e, direction_label):

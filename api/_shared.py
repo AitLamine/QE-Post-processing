@@ -23,6 +23,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from file_validation import validate_file_role, FileValidationError  # noqa: E402
 
 
+def subprocess_env():
+    """Environment for any `subprocess.run([sys.executable, ...])` call that spawns a pipeline
+    script needing numpy/scipy/matplotlib (effective-mass, tauc). Vercel's Python runtime adds
+    this process's third-party dependencies to `sys.path` at cold start without installing them
+    into the interpreter's real site-packages directory on disk, so a freshly spawned child
+    interpreter doesn't see them and fails with `ModuleNotFoundError` in production even though
+    `vercel dev` (which does use a real on-disk venv) never reproduces it. Propagating the
+    parent's already-resolved `sys.path` via PYTHONPATH is the standard, mechanism-agnostic fix:
+    it works regardless of how the parent's packages got onto its own sys.path.
+    """
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH", "")
+    extra = os.pathsep.join(sys.path)
+    env["PYTHONPATH"] = f"{extra}{os.pathsep}{existing}" if existing else extra
+    return env
+
+
 def safe_filename(name, fallback="upload"):
     """Strip any directory components from an uploaded file's original filename before it's
     ever joined into a scratch-dir path. The filename in a multipart Content-Disposition

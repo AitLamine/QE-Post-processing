@@ -105,7 +105,18 @@ export default function TaskPage({ module }) {
       if (templateFile[0]) formData.append('templateFile', templateFile[0])
 
       const res = await fetch(module.apiEndpoint || '/api/process', { method: 'POST', body: formData })
-      if (!res.ok) throw new Error(`Server returned ${res.status}`)
+      if (!res.ok) {
+        // The backend returns a specific, plain-language {"error": "..."} body on failure --
+        // surface that to the student instead of a generic message, so they know whether to
+        // fix a typed value, try the other input mode, or it's not something they can fix.
+        let serverMessage = ''
+        try {
+          serverMessage = (await res.json()).error || ''
+        } catch {
+          // Non-JSON error body (e.g. an infra-level 5xx) -- fall through to the generic message.
+        }
+        throw new Error(serverMessage || `Server returned ${res.status}`)
+      }
 
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -118,7 +129,7 @@ export default function TaskPage({ module }) {
       URL.revokeObjectURL(url)
       setJobStatus('done')
     } catch (err) {
-      setError(t('errorMessage'))
+      setError(err.message || t('errorMessage'))
       setJobStatus('failed')
     }
   }
