@@ -164,7 +164,7 @@ export default function TaskPage({ module }) {
                 label={manualEntryLabel(module, f.key, f.label, lang)}
                 filename={f.filename}
                 placeholder={f.placeholder}
-                sampleText={f.placeholder}
+                sampleText={f.sampleText || f.placeholder}
                 fillTrigger={sampleTrigger}
                 onFilesChange={(nextFiles) => updateSlotFiles(f.key, nextFiles)}
               />
