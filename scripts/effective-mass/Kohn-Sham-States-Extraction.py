@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
 Splits the band .dat.gnu file (blank-line-separated blocks, one per band)
-and extracts the bands around the VBM/CBM identified by Detect-Configuration.py
-(auto mode) or Manual-Configuration.py (manual mode).
+and extracts the bands around the VBM/CBM identified by Manual-Configuration.py.
 
 Requires material_config.json in the current directory (run
-Detect-Configuration.py or Manual-Configuration.py first). Unmodified from
-the validated one-off toolkit: this step only reads generic
-"band_gnu_file"/"band_edges" keys, so it never needs to know which mode
-produced material_config.json.
+Manual-Configuration.py first). Unmodified from the validated one-off
+toolkit: this step only reads generic "band_gnu_file"/"band_edges" keys.
 """
 
 import json
@@ -34,8 +31,7 @@ def extract_sections(band_gnu_file):
 
 def main():
     if not os.path.exists("material_config.json"):
-        print("ERROR: material_config.json not found. Run Detect-Configuration.py "
-              "(auto mode) or Manual-Configuration.py (manual mode) first.")
+        print("ERROR: material_config.json not found. Run Manual-Configuration.py first.")
         sys.exit(1)
 
     with open("material_config.json") as f:

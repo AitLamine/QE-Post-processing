@@ -28,14 +28,11 @@ BOHR_TO_ANGSTROM = 0.529177210903  # Bohr radius, used to convert celldm(1)/(3) 
 
 def load_lattice_info():
     """
-    Load the lattice constant resolved by Detect-Configuration.py (auto mode,
-    parsed from QE files) or Manual-Configuration.py (manual mode, typed by
-    the student), already resolved to whichever axis (a or c) matches this
-    direction's k-path in auto mode.
+    Load the lattice constant typed by the student and resolved by
+    Manual-Configuration.py.
     """
     if not os.path.exists("material_config.json"):
-        print("ERROR: material_config.json not found. Run Detect-Configuration.py "
-              "or Manual-Configuration.py first.")
+        print("ERROR: material_config.json not found. Run Manual-Configuration.py first.")
         sys.exit(1)
     with open("material_config.json") as f:
         config = json.load(f)
@@ -141,9 +138,7 @@ def calculate_effective_mass(DS, a_lattice):
     DS : float
         Second derivative coefficient (a from the quadratic fit)
     a_lattice : float
-        Lattice parameter in Angstrom (already resolved to the axis matching
-        this direction's k-path, see Detect-Configuration.py, or typed
-        directly by the student in manual mode)
+        Lattice parameter in Angstrom, typed directly by the student
 
     Returns:
     --------
@@ -328,8 +323,7 @@ def main():
 
     print(f"Successfully extracted {len(data['plot_data'])} data points.")
 
-    # Lattice constant, auto-extracted per direction (Detect-Configuration.py)
-    # or manually entered (Manual-Configuration.py)
+    # Lattice constant, manually entered (Manual-Configuration.py)
     lattice = load_lattice_info()
     a_lattice = lattice["lattice_constant_angstrom"]
 

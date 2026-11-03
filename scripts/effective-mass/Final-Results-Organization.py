@@ -17,8 +17,7 @@ import json
 
 def build_prefix_mappings():
     if not os.path.exists("material_config.json"):
-        print("ERROR: material_config.json not found. Run Detect-Configuration.py "
-              "or Manual-Configuration.py first.")
+        print("ERROR: material_config.json not found. Run Manual-Configuration.py first.")
         sys.exit(1)
 
     with open("material_config.json") as f:

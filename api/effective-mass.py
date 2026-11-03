@@ -27,13 +27,19 @@ dependencies. See `_parse_multipart` below.
 Request fields expected (see this module's final report for the full
 parameter/field-name contract handed to the frontend):
   - moduleId, moduleTitle
-  - parameters: JSON string (detectionMode, shared pipeline settings, plot
-    settings, and manual-mode lattice/VBM values)
-  - files, named by slot with no numeric prefix (Auto mode: `datgnu`,
-    `scfBandsIn`, `scfBandsOut`, `bandsCalcIn`, `bandsCalcOut`; Manual mode:
-    `bandFile`)
+  - parameters: JSON string (shared pipeline settings, plot settings, and
+    the typed lattice constant / VBM index)
+  - files: `bandFile` (the band-structure .dat.gnu data)
   - templateFile: optional custom LaTeX template (.tex) for the pgfplots
     export
+
+Only ever takes a typed lattice constant (Angstrom) and VBM band index, never
+raw QE `.in`/`.out` files: those files carry the full crystal structure
+(ibrav/celldm/atomic positions), which this module used to require in an
+earlier "auto" detection mode (upload or paste alike leaked the structure).
+Retired in favor of typed values, computed client-side from celldm(1)/nelec
+by the same arithmetic the old auto mode did server-side -- see
+Manual-Configuration.py, the only configuration path this handler calls now.
 
 One k-direction per request, by design: an earlier version of this module
 accepted 1-3 directions in a single request, chaining up to 3x the
@@ -70,14 +76,6 @@ from _shared import safe_filename, subprocess_env  # noqa: E402
 SCRIPTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts", "effective-mass")
 )
-
-AUTO_FILE_SLOTS = {
-    "datgnu": "dat",  # goes into raw/dat/
-    "scfBandsIn": "",
-    "scfBandsOut": "",
-    "bandsCalcIn": "",
-    "bandsCalcOut": "",
-}
 
 
 class PipelineError(Exception):
@@ -185,11 +183,11 @@ def _extract_r_squared(info_text):
 
 
 # ---------------------------------------------------------------------------
-# Per-direction pipeline (mirrors Run-Effective-Mass-Direction.sl exactly,
-# branching only at the Detect-Configuration.py / Manual-Configuration.py step)
+# Per-direction pipeline (mirrors Run-Effective-Mass-Direction.sl, configured
+# via Manual-Configuration.py from the typed lattice constant / VBM index)
 # ---------------------------------------------------------------------------
 
-def _run_direction(mode, parameters, files, scratch_dir, template_path):
+def _run_direction(parameters, files, scratch_dir, template_path):
     label = _direction_label(parameters)
     direction_cwd = os.path.join(scratch_dir, "direction")
     raw_dir = os.path.join(direction_cwd, "raw")
@@ -229,70 +227,42 @@ def _run_direction(mode, parameters, files, scratch_dir, template_path):
 
     uploaded_names = []
 
-    if mode == "auto":
-        dat_dir = os.path.join(raw_dir, "dat")
-        os.makedirs(dat_dir, exist_ok=True)
-        missing = []
-        for slot, subdir in AUTO_FILE_SLOTS.items():
-            if slot not in files:
-                missing.append(slot)
-                continue
-            fname, fbytes = files[slot]
-            uploaded_names.append(fname)
-            dest_dir = dat_dir if subdir == "dat" else raw_dir
-            with open(os.path.join(dest_dir, safe_filename(fname)), "wb") as fh:
-                fh.write(fbytes)
-        if missing:
-            raise PipelineError(
-                f"{label}: Auto mode needs all 4 raw QE files, but "
-                f"{len(missing)} field(s) were missing from the upload ({', '.join(missing)}). "
-                "Auto mode expects the .dat.gnu band file plus the scf-bands and "
-                "Bands-Calculation .in/.out pairs, exactly as pw.x/bands.x produced them."
-            )
-        try:
-            _run(
-                [sys.executable, os.path.join(SCRIPTS_DIR, "Detect-Configuration.py"), "raw", label],
-                direction_cwd,
-            )
-        except subprocess.CalledProcessError as e:
-            raise PipelineError(_friendly_subprocess_error(e, label))
-    else:
-        if "bandFile" not in files:
-            raise PipelineError(
-                f"{label}: Manual mode needs one band-structure data file "
-                "('bandFile') plus the typed lattice constant and VBM band index."
-            )
-        fname, fbytes = files["bandFile"]
-        uploaded_names.append(fname)
-        band_path = os.path.join(raw_dir, safe_filename(fname))
-        with open(band_path, "wb") as fh:
-            fh.write(fbytes)
+    if "bandFile" not in files:
+        raise PipelineError(
+            f"{label}: needs one band-structure data file ('bandFile') plus the typed "
+            "lattice constant and VBM band index."
+        )
+    fname, fbytes = files["bandFile"]
+    uploaded_names.append(fname)
+    band_path = os.path.join(raw_dir, safe_filename(fname))
+    with open(band_path, "wb") as fh:
+        fh.write(fbytes)
 
-        lattice_constant = _float(parameters.get("latticeConstant"))
-        vbm_index = _int(parameters.get("vbmIndex"), None)
-        if lattice_constant is None or vbm_index is None:
-            raise PipelineError(
-                f"{label}: Manual mode needs both a lattice constant (Angstrom) and a "
-                "VBM band index typed in ('latticeConstant' and 'vbmIndex')."
-            )
-        try:
-            _run(
-                [
-                    sys.executable,
-                    os.path.join(SCRIPTS_DIR, "Manual-Configuration.py"),
-                    band_path,
-                    label,
-                    str(lattice_constant),
-                    str(vbm_index),
-                    str(n_below),
-                    str(n_above),
-                    str(points_around_extremum),
-                    material_label,
-                ],
-                direction_cwd,
-            )
-        except subprocess.CalledProcessError as e:
-            raise PipelineError(_friendly_subprocess_error(e, label))
+    lattice_constant = _float(parameters.get("latticeConstant"))
+    vbm_index = _int(parameters.get("vbmIndex"), None)
+    if lattice_constant is None or vbm_index is None:
+        raise PipelineError(
+            f"{label}: needs both a lattice constant (Angstrom) and a VBM band index "
+            "typed in ('latticeConstant' and 'vbmIndex')."
+        )
+    try:
+        _run(
+            [
+                sys.executable,
+                os.path.join(SCRIPTS_DIR, "Manual-Configuration.py"),
+                band_path,
+                label,
+                str(lattice_constant),
+                str(vbm_index),
+                str(n_below),
+                str(n_above),
+                str(points_around_extremum),
+                material_label,
+            ],
+            direction_cwd,
+        )
+    except subprocess.CalledProcessError as e:
+        raise PipelineError(_friendly_subprocess_error(e, label))
 
     try:
         _run(
@@ -358,7 +328,6 @@ def _run_direction(mode, parameters, files, scratch_dir, template_path):
 
     return {
         "label": label,
-        "mode": mode,
         "direction_cwd": direction_cwd,
         "material_config": material_config,
         "band_results": band_results,
@@ -372,9 +341,8 @@ def _run_direction(mode, parameters, files, scratch_dir, template_path):
 # the shared output convention in Post-Processing-WebApp-Outline.md)
 # ---------------------------------------------------------------------------
 
-def _build_readme(module_title, mode, parameters, direction_results, template_path):
+def _build_readme(module_title, parameters, direction_results, template_path):
     lines = [f"{module_title} — Results", ""]
-    lines.append(f"Detection mode: {'Auto (parsed from raw QE files)' if mode == 'auto' else 'Manual (typed values)'}")
     if template_path:
         lines.append("Custom LaTeX template: supplied and used for the pgfplots export.")
     lines.append("")
@@ -384,17 +352,10 @@ def _build_readme(module_title, mode, parameters, direction_results, template_pa
         edges = dr["material_config"]["band_edges"]
         lines.append(f"Direction: {dr['label']}")
         lines.append(f"  Uploaded file(s): {', '.join(dr['uploaded_names']) or '(none)'}")
-        if dr["mode"] == "auto":
-            lines.append(
-                f"  Auto-detected: lattice constant = {lattice['lattice_constant_angstrom']:.6f} Ang "
-                f"(axis {lattice['lattice_axis_used']}), VBM band #{edges['vbm_index']}, "
-                f"CBM band #{edges['cbm_index']} (nelec={edges['nelec']}, noncolin={edges['noncolin']})"
-            )
-        else:
-            lines.append(
-                f"  Manually entered: lattice constant = {lattice['lattice_constant_angstrom']:.6f} Ang, "
-                f"VBM band #{edges['vbm_index']}, CBM band #{edges['cbm_index']}"
-            )
+        lines.append(
+            f"  Manually entered: lattice constant = {lattice['lattice_constant_angstrom']:.6f} Ang, "
+            f"VBM band #{edges['vbm_index']}, CBM band #{edges['cbm_index']}"
+        )
         for br in dr["band_results"]:
             m_str = f"{br['m_eff']:.6f}" if br["m_eff"] is not None else "n/a"
             r_str = f"{br['r_squared']:.6f}" if br["r_squared"] is not None else "n/a"
@@ -465,10 +426,10 @@ def _build_mass_table(direction_results):
     return csv_text, tex_text
 
 
-def _build_zip(module_title, mode, parameters, direction_results, template_path):
+def _build_zip(module_title, parameters, direction_results, template_path):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("README.txt", _build_readme(module_title, mode, parameters, direction_results, template_path))
+        zf.writestr("README.txt", _build_readme(module_title, parameters, direction_results, template_path))
 
         csv_text, tex_text = _build_mass_table(direction_results)
         zf.writestr("tables/mass-summary.csv", csv_text)
@@ -559,11 +520,6 @@ class handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "The 'parameters' field is not valid JSON."})
                 return
 
-            mode = (parameters.get("detectionMode") or "auto").strip().lower()
-            if mode not in ("auto", "manual"):
-                self._send_json(400, {"error": f"Unknown detectionMode '{mode}'; expected 'auto' or 'manual'."})
-                return
-
             scratch_dir = tempfile.mkdtemp(prefix="effective-mass-")
 
             template_path = None
@@ -574,9 +530,9 @@ class handler(BaseHTTPRequestHandler):
                     with open(template_path, "wb") as fh:
                         fh.write(template_bytes)
 
-            direction_results = [_run_direction(mode, parameters, files, scratch_dir, template_path)]
+            direction_results = [_run_direction(parameters, files, scratch_dir, template_path)]
 
-            zip_bytes = _build_zip(module_title, mode, parameters, direction_results, template_path)
+            zip_bytes = _build_zip(module_title, parameters, direction_results, template_path)
             filename = f"{re.sub(r'[^a-zA-Z0-9]+', '-', module_title).strip('-') or 'Effective-Mass'}-Results.zip"
             self._send_zip(zip_bytes, filename)
 

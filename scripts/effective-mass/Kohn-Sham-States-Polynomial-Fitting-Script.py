@@ -7,8 +7,7 @@ print_enhanced_results) is unchanged.
 
 New in this port (GUI features (c)-(f) from the module spec): create_enhanced_plot
 now reads plot settings from material_config.json's settings.plot (written by
-Detect-Configuration.py / Manual-Configuration.py from the web form) to
-support:
+Manual-Configuration.py from the web form) to support:
   (c) auto-ranged axis limits (data min/max + 1% padding) with manual override
   (d) figure output format: PNG / LaTeX (pgfplots) / both
   (e) legend customization: per-series labels, position, show/hide

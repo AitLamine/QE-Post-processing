@@ -329,6 +329,18 @@ a { color: inherit; }
 }
 .mode-toggle-option.checked { border-color: var(--accent); color: var(--accent2); }
 .manual-help { font-size: 0.78rem; color: var(--dim); line-height: 1.6; margin-bottom: 14px; }
+.link-button {
+  display: block;
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--dim);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover { color: var(--accent); }
 .manual-paste-textarea {
   width: 100%;
   background: var(--bg);

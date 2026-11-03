@@ -6,27 +6,34 @@ import JobStatusIndicator from './JobStatusIndicator'
 import { useLang } from '@/lib/LangContext'
 
 const AXIS_LABELS = { x: 'X-direction', y: 'Y-direction', z: 'Z-direction' }
+const BOHR_TO_ANGSTROM = 0.529177210903
 
 // Processes exactly one k-direction per submission (not 1-3 batched into one request): a
 // student wanting more than one direction runs this module once per direction. Batching
 // multiple directions into one request was the single biggest risk of hitting a serverless
 // function timeout in this app, since each direction chains 6+ subprocess calls on its own.
 //
+// Only ever takes typed lattice constant + VBM band index (never raw QE .in/.out files,
+// upload or paste): those files carry the full crystal structure (ibrav/celldm/atomic
+// positions), which is exactly the kind of data the per-field privacy model elsewhere in this
+// app is built to avoid asking for. The "derive instead" helpers below do the same
+// Bohr->Angstrom / nelec->band-index arithmetic the old file-based auto mode did, from typed
+// numbers instead of uploaded structure files.
+//
 // The real backend (api/effective-mass.py) expects a richer multi-file contract than the
 // generic flat-upload TaskPage flow can express, so this module gets its own form.
 export default function EffectiveMassForm({ module }) {
   const { t } = useLang()
-  const [detectionMode, setDetectionMode] = useState('auto')
   const [directionAxis, setDirectionAxis] = useState('x')
   const [customLabel, setCustomLabel] = useState('')
-  const [latticeConstant, setLatticeConstant] = useState('')
-  const [vbmIndex, setVbmIndex] = useState('')
-  const [datgnu, setDatgnu] = useState([])
-  const [scfBandsIn, setScfBandsIn] = useState([])
-  const [scfBandsOut, setScfBandsOut] = useState([])
-  const [bandsCalcIn, setBandsCalcIn] = useState([])
-  const [bandsCalcOut, setBandsCalcOut] = useState([])
   const [bandFile, setBandFile] = useState([])
+  const [latticeConstant, setLatticeConstant] = useState('')
+  const [showCelldmHelper, setShowCelldmHelper] = useState(false)
+  const [celldm1Bohr, setCelldm1Bohr] = useState('')
+  const [vbmIndex, setVbmIndex] = useState('')
+  const [showNelecHelper, setShowNelecHelper] = useState(false)
+  const [nelec, setNelec] = useState('')
+  const [noncolin, setNoncolin] = useState(false)
   const [nBandsBelowVbm, setNBandsBelowVbm] = useState(3)
   const [nBandsAboveCbm, setNBandsAboveCbm] = useState(3)
   const [pointsAroundExtremum, setPointsAroundExtremum] = useState(10)
@@ -43,9 +50,21 @@ export default function EffectiveMassForm({ module }) {
   const canSubmit =
     jobStatus !== 'processing' &&
     directionLabel &&
-    (detectionMode === 'auto'
-      ? [datgnu, scfBandsIn, scfBandsOut, bandsCalcIn, bandsCalcOut].every((f) => f.length > 0)
-      : bandFile.length > 0 && latticeConstant !== '' && vbmIndex !== '')
+    bandFile.length > 0 &&
+    latticeConstant !== '' &&
+    vbmIndex !== ''
+
+  function handleCelldm1Change(value) {
+    setCelldm1Bohr(value)
+    const parsed = parseFloat(value)
+    if (!Number.isNaN(parsed)) setLatticeConstant((parsed * BOHR_TO_ANGSTROM).toFixed(6))
+  }
+
+  function handleNelecChange(value, noncolinValue) {
+    setNelec(value)
+    const parsed = parseFloat(value)
+    if (!Number.isNaN(parsed)) setVbmIndex(String(Math.round(parsed / (noncolinValue ? 1 : 2))))
+  }
 
   async function handleSubmit() {
     setError('')
@@ -56,28 +75,17 @@ export default function EffectiveMassForm({ module }) {
       formData.append('moduleTitle', module.title)
 
       const parameters = {
-        detectionMode,
         directionLabel,
+        latticeConstant,
+        vbmIndex,
         nBandsBelowVbm, nBandsAboveCbm, pointsAroundExtremum,
         materialLabel,
         figureFormat,
         xRange, yRange,
       }
-      if (detectionMode === 'manual') {
-        parameters.latticeConstant = latticeConstant
-        parameters.vbmIndex = vbmIndex
-      }
       formData.append('parameters', JSON.stringify(parameters))
 
-      if (detectionMode === 'auto') {
-        if (datgnu[0]) formData.append('datgnu', datgnu[0])
-        if (scfBandsIn[0]) formData.append('scfBandsIn', scfBandsIn[0])
-        if (scfBandsOut[0]) formData.append('scfBandsOut', scfBandsOut[0])
-        if (bandsCalcIn[0]) formData.append('bandsCalcIn', bandsCalcIn[0])
-        if (bandsCalcOut[0]) formData.append('bandsCalcOut', bandsCalcOut[0])
-      } else {
-        if (bandFile[0]) formData.append('bandFile', bandFile[0])
-      }
+      if (bandFile[0]) formData.append('bandFile', bandFile[0])
       if (templateFile[0]) formData.append('templateFile', templateFile[0])
 
       const res = await fetch(module.apiEndpoint, { method: 'POST', body: formData })
@@ -117,13 +125,6 @@ export default function EffectiveMassForm({ module }) {
           pasted, independently.
         </p>
         <div className="param-field">
-          <label>Detection mode</label>
-          <select value={detectionMode} onChange={(e) => setDetectionMode(e.target.value)}>
-            <option value="auto">Auto (raw QE files: .dat.gnu + scf-bands + Bands-Calculation .in/.out)</option>
-            <option value="manual">Manual (one already-extracted band-data file + typed lattice constant/VBM index)</option>
-          </select>
-        </div>
-        <div className="param-field">
           <label>Direction</label>
           <select value={directionAxis} onChange={(e) => setDirectionAxis(e.target.value)}>
             <option value="x">X-direction</option>
@@ -140,39 +141,48 @@ export default function EffectiveMassForm({ module }) {
           </div>
         )}
 
-        {detectionMode === 'auto' ? (
-          <>
-            <FileSlot label="Band-structure .dat.gnu file" filename="Bands.dat.gnu"
-                      placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...\n\n0.000000  -1.234000\n...'}
-                      onFilesChange={setDatgnu} />
-            <FileSlot label="scf-bands calculation .in file" filename="scf-bands-Calculation.in"
-                      placeholder={'&CONTROL\n  calculation = \'scf\'\n...\nibrav = 4\ncelldm(1) = 6.1234\ncelldm(3) = 1.602\n...'}
-                      onFilesChange={setScfBandsIn} />
-            <FileSlot label="scf-bands calculation .out file" filename="scf-bands-Calculation.out"
-                      placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
-                      onFilesChange={setScfBandsOut} />
-            <FileSlot label="Bands-Calculation .in file" filename="Bands-Calculation.in"
-                      placeholder={'&CONTROL\n  calculation = \'bands\'\n...\nK_POINTS crystal_b\n5\n0.0 0.0 0.0 20 !G\n...'}
-                      onFilesChange={setBandsCalcIn} />
-            <FileSlot label="Bands-Calculation .out file" filename="Bands-Calculation.out"
-                      placeholder={'Program PWSCF ...\n...\nnumber of electrons       =    36.00\n...'}
-                      onFilesChange={setBandsCalcOut} />
-          </>
-        ) : (
-          <>
-            <FileSlot label="Band-structure data file" filename="band-data.dat.gnu"
-                      placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...'}
-                      onFilesChange={setBandFile} />
-            <div className="param-field" style={{ marginTop: 12 }}>
-              <label>Lattice constant a (Angstrom)</label>
-              <input type="text" value={latticeConstant} onChange={(e) => setLatticeConstant(e.target.value)} />
+        <FileSlot label="Band-structure data file" filename="band-data.dat.gnu"
+                  placeholder={'0.000000  -5.432100\n0.012345  -5.431000\n...'}
+                  onFilesChange={setBandFile} />
+
+        <div className="param-field" style={{ marginTop: 12 }}>
+          <label>Lattice constant a (Angstrom)</label>
+          <input type="text" value={latticeConstant} onChange={(e) => setLatticeConstant(e.target.value)} />
+          <button type="button" className="link-button"
+                  onClick={() => setShowCelldmHelper((v) => !v)}>
+            {showCelldmHelper ? 'Hide' : "Don't know it in Angstrom? Derive from celldm(1)"}
+          </button>
+          {showCelldmHelper && (
+            <div className="param-field" style={{ marginTop: 4 }}>
+              <label>celldm(1) (Bohr, from your scf/bands input file's &amp;SYSTEM block)</label>
+              <input type="text" value={celldm1Bohr} onChange={(e) => handleCelldm1Change(e.target.value)} />
             </div>
-            <div className="param-field">
-              <label>VBM band index</label>
-              <input type="number" value={vbmIndex} onChange={(e) => setVbmIndex(e.target.value)} />
+          )}
+        </div>
+
+        <div className="param-field">
+          <label>VBM band index</label>
+          <input type="number" value={vbmIndex} onChange={(e) => setVbmIndex(e.target.value)} />
+          <button type="button" className="link-button"
+                  onClick={() => setShowNelecHelper((v) => !v)}>
+            {showNelecHelper ? 'Hide' : "Don't know the band index? Derive from electron count"}
+          </button>
+          {showNelecHelper && (
+            <div style={{ marginTop: 4 }}>
+              <div className="param-field">
+                <label>Number of electrons (from your bands.out file)</label>
+                <input type="text" value={nelec} onChange={(e) => handleNelecChange(e.target.value, noncolin)} />
+              </div>
+              <div className="param-field">
+                <label>
+                  <input type="checkbox" checked={noncolin}
+                         onChange={(e) => { setNoncolin(e.target.checked); handleNelecChange(nelec, e.target.checked) }} />
+                  {' '}Spin-orbit / noncolinear calculation (noncolin = .true.)
+                </label>
+              </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="section-block">
