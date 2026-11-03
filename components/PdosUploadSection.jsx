@@ -57,7 +57,7 @@ export default function PdosUploadSection({
           <PdosFileLabels files={files} labels={pdosLabels} onChange={setPdosLabels} />
           <div style={{ marginTop: 16 }}>
             <UploadWidget
-              label="dos.x output (optional — only used to auto-detect the VBM/Fermi energy)"
+              label={t('uploadDosForFermiLabel')}
               files={dosForFermi}
               onChange={setDosForFermi}
             />

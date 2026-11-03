@@ -31,6 +31,7 @@ docstrings):
 Response: application/zip (figures/ + tables/ + a plain-language gap-value summary), or JSON error.
 """
 
+import glob
 import os
 import io
 import re
@@ -93,7 +94,7 @@ def _run_slope_line(input_file, output_file, fit_window, electronic_gap):
 def _run_approach(label, input_file, fit_window, electronic_gap, transition_type, exponent,
                    material_label, want_latex, template_path):
     """Run slope_line_bandgap.py on `input_file` for one approach. Returns a dict with either
-    {'plot_png', 'gap_results_path', ['tex_path', 'pdf_path']} on success or {'error'} on
+    {'plot_pngs', 'gap_results_path', ['tex_path', 'pdf_path']} on success or {'error'} on
     failure -- never raises, so the caller can still build a zip from whichever approach(es)
     succeeded.
     """
@@ -101,8 +102,10 @@ def _run_approach(label, input_file, fit_window, electronic_gap, transition_type
     error = _run_slope_line(input_file, gap_results_path, fit_window, electronic_gap)
     if error:
         return {"label": label, "error": error}
-    plot_png = os.path.splitext(input_file)[0] + "_enhanced_analysis.png"
-    result = {"label": label, "gap_results_path": gap_results_path, "plot_png": plot_png}
+    # One PNG per Tauc column/axis (slope_line_bandgap.py's plot_results() names them
+    # "<base>_enhanced_analysis_<column>.png"), not a single combined multi-panel image.
+    plot_pngs = sorted(glob.glob(os.path.splitext(input_file)[0] + "_enhanced_analysis_*.png"))
+    result = {"label": label, "gap_results_path": gap_results_path, "plot_pngs": plot_pngs}
     if want_latex:
         tex_path = os.path.splitext(input_file)[0] + "_tauc-plot.tex"
         export_tauc_tex(
@@ -204,8 +207,9 @@ class handler(BaseTaskHandler):
                     readme_lines.append(f"  {r['error'].splitlines()[0]}\n")
                     continue
                 readme_lines.append(f"{r['label']}: see figures/{folder}/ and tables/{folder}/\n")
-                if want_png and os.path.exists(r["plot_png"]):
-                    zf.write(r["plot_png"], f"figures/{folder}/{os.path.basename(r['plot_png'])}")
+                if want_png:
+                    for plot_png in r["plot_pngs"]:
+                        zf.write(plot_png, f"figures/{folder}/{os.path.basename(plot_png)}")
                 if r.get("tex_path") and os.path.exists(r["tex_path"]):
                     zf.write(r["tex_path"], f"figures/{folder}/{os.path.basename(r['tex_path'])}")
                 if r.get("pdf_path") and os.path.exists(r["pdf_path"]):

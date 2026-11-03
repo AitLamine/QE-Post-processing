@@ -38,6 +38,14 @@ from bands_dos_utils import EFERMI_RE  # noqa: E402
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "common"))
 from pgfplots_export import Curve, export_pgfplots, resolve_range, compile_pgfplots_to_pdf  # noqa: E402
 
+# Default energy-axis window (eV, relative to the VBM/Fermi reference at 0): a raw pdos_atm
+# file's energy grid spans projwfc.x's full SCF window, typically down into deep semicore/core
+# states tens to hundreds of eV below the valence band -- a full auto-range there is dominated
+# by that flat deep tail and hides the actual valence/conduction-edge structure a student wants
+# to see (same failure mode DEFAULT_WAVELENGTH_RANGE_NM in eps_utils.py exists to avoid for the
+# optical modules). Still overridable via x_range.
+DEFAULT_ENERGY_RANGE_EV = (-20.0, 15.0)
+
 DEFAULT_PLOT_SETTINGS = {
     'x_range': '',
     'y_range': '',
@@ -126,7 +134,10 @@ def plot_pdos(file_entries, out_dir, tag, energy_shift, plot_settings=None):
 
         all_energies = curves[0][1]
         all_ldos_values = [v for _, _, ldos, _ in curves for v in ldos]
-        xlim = resolve_range(plot_settings.get('x_range'), all_energies, pad_frac=0.02)
+        if plot_settings.get('x_range'):
+            xlim = resolve_range(plot_settings.get('x_range'), all_energies, pad_frac=0.02)
+        else:
+            xlim = DEFAULT_ENERGY_RANGE_EV
         ylim = resolve_range(plot_settings.get('y_range'), all_ldos_values, pad_frac=0.05)
 
         if want_png:

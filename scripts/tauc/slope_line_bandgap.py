@@ -213,6 +213,7 @@ class TaucAnalyzer:
         self.column_candidates = {}  # Store multiple candidates per column
         self.grouped_results = []     # Store cross-validated groups
         self.column_group_map = {}    # Map column to group number
+        self.plot_files = []          # Per-column PNG paths written by plot_results()
         self.load_data()
     
     def load_data(self):
@@ -1060,18 +1061,20 @@ class TaucAnalyzer:
         print()
     
     def plot_results(self):
-        """Plot results with ALL columns in original file order."""
+        """Plot results with ALL columns in original file order. One standalone figure per
+        column/axis (not stacked subplots in one combined image) -- matches this app's house
+        convention of one image per quantity, so a student can place each axis's figure
+        independently rather than being locked into this script's own panel layout. Saved
+        filenames land in self.plot_files, in self.tauc_columns order."""
         if not PLOT_RESULTS or not self.column_candidates:
             if not self.column_candidates: print("⚠ No results to plot")
             return
-        
-        n_plots = len(self.tauc_columns)
-        fig, axes = plt.subplots(n_plots, 1, figsize=(12, 6*n_plots), squeeze=False)
-        axes = axes.flatten()
+
+        self.plot_files = []
 
         for i, column in enumerate(self.tauc_columns):
-            ax = axes[i]
-            
+            fig, ax = plt.subplots(figsize=(12, 6))
+
             if column not in self.column_candidates:
                 ax.text(0.5, 0.5, f'No results found for {column}', transform=ax.transAxes, ha='center', va='center', fontsize=14, color='red')
                 ax.set_title(f'{column} - No Results', fontsize=12, fontweight='bold')
@@ -1121,19 +1124,20 @@ class TaucAnalyzer:
             ax.grid(True, alpha=0.3)
             ax.set_ylim(bottom=0)
 
-        plt.tight_layout(rect=[0, 0, 1, 0.98])
-        fig.suptitle(f'Tauc Analysis for {os.path.basename(self.filename)}', fontsize=16, fontweight='bold')
+            fig.tight_layout(rect=[0, 0, 1, 0.96])
+            fig.suptitle(f'Tauc Analysis for {os.path.basename(self.filename)} -- {column}', fontsize=14, fontweight='bold')
 
-        if SAVE_PLOTS:
-            plot_file = os.path.splitext(self.filename)[0] + '_enhanced_analysis.png'
-            plt.savefig(plot_file, dpi=PLOT_DPI, bbox_inches='tight')
-            print(f"\n✓ Plot saved: {plot_file}")
-        
-        if SHOW_PLOTS:
-            plt.show()
-        else:
-            plt.close(fig) # Explicitly close the figure
-    
+            if SAVE_PLOTS:
+                plot_file = f'{os.path.splitext(self.filename)[0]}_enhanced_analysis_{column}.png'
+                plt.savefig(plot_file, dpi=PLOT_DPI, bbox_inches='tight')
+                self.plot_files.append(plot_file)
+                print(f"\n✓ Plot saved: {plot_file}")
+
+            if SHOW_PLOTS:
+                plt.show()
+            else:
+                plt.close(fig) # Explicitly close the figure
+
     def save_results(self, output_filename=None):
         """Save results organized by column order."""
         if not self.column_candidates:

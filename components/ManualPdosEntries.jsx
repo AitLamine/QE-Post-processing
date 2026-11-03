@@ -24,7 +24,7 @@ export default function ManualPdosEntries({ entries, onChange }) {
       {entries.map((entry, i) => (
         <div className="section-block" key={i} style={{ marginTop: i === 0 ? 0 : 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h2 style={{ marginBottom: 0 }}>Entry {i + 1}</h2>
+            <h2 style={{ marginBottom: 0 }}>{t('pdosEntryTitle').replace('{n}', i + 1)}</h2>
             {entries.length > 1 && (
               <button className="btn-action" onClick={() => removeEntry(i)}>{t('manualPdosRemoveButton')}</button>
             )}
@@ -32,9 +32,9 @@ export default function ManualPdosEntries({ entries, onChange }) {
           <table className="pdos-label-table" style={{ marginTop: 10 }}>
             <thead>
               <tr>
-                <th>Species (e.g. Zn)</th>
-                <th>Orbital (s/p/d/f)</th>
-                <th>Shell number (e.g. 4)</th>
+                <th>{t('pdosColSpecies')}</th>
+                <th>{t('pdosColOrbital')}</th>
+                <th>{t('pdosColShell')}</th>
               </tr>
             </thead>
             <tbody>
@@ -55,7 +55,7 @@ export default function ManualPdosEntries({ entries, onChange }) {
             </tbody>
           </table>
           <div className="param-field" style={{ marginTop: 10 }}>
-            <label>pdos_atm file content</label>
+            <label>{t('pdosFileContentLabel')}</label>
             <textarea
               className="manual-paste-textarea"
               rows={6}
