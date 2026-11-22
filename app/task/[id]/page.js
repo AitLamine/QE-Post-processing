@@ -6,8 +6,9 @@ export function generateStaticParams() {
   return getAllModules().map((module) => ({ id: module.id }))
 }
 
-export default function Task({ params }) {
-  const module = getModuleById(params.id)
+export default async function Task({ params }) {
+  const { id } = await params
+  const module = getModuleById(id)
   if (!module) notFound()
   return <TaskPage module={module} />
 }
